@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        - DEV=${DEV}
+    init: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "3"
+    # restart: always
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DEV=${DEV}
+
+    volumes:
+      - ./app:/app
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "3"
+    # restart: always
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+
+  adminer:
+    image: adminer
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "3"
+    depends_on:
+      - db
+
+  proxy:
+    build:
+      context: ./proxy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "3m"
+        max-file: "3"
+    # restart: always
+    depends_on:
+      - app
+    ports:
+      - 80:8000
+
+volumes:
+  db-data:
