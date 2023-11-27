@@ -28,7 +28,7 @@ async def test_add_user(db_setup):
             assert data['email'] == payload['email']
             assert isinstance(data['id'], int)
 
-            data = await read_user(conn, id=data['id'])
+            data = await read_user(conn, user_id=data['id'])
             assert data['name'] == payload['name']
             assert data['telegram_id'] == payload['telegram_id']
 
@@ -61,7 +61,6 @@ async def test_read_user(db_setup):
             response = await ac.get(f"/users/{999}")
             print(response.text)
             assert response.status_code == 404
-
 
 @pytest.mark.asyncio
 async def test_read_users(db_setup):
@@ -101,7 +100,7 @@ async def test_update_user(db_setup):
             assert data['telegram_id'] == payload['telegram_id']
             assert data['email'] == payload['email']
 
-            data = await read_user(conn, id=user_id)
+            data = await read_user(conn, user_id=user_id)
             assert data['name'] == payload['name']
             assert data['telegram_id'] == payload['telegram_id']
             assert data['email'] == payload['email']

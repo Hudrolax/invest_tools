@@ -41,7 +41,7 @@ async def put_user(
 ) -> User:
     try:
         await update_user(conn, id=user_id, **dict(data))
-        user = await read_user(conn, id=user_id)
+        user = await read_user(conn, user_id=user_id)
     except ParamsError as ex:
         raise HTTPException(422, ex.message)
 
@@ -49,18 +49,22 @@ async def put_user(
 
 
 @router.get("/")
-async def get_users(conn: Connection = Depends(db.get_conn)) -> Users:
-    users = await read_users(conn)
+async def get_users(
+    user_id: int | None = None,
+    telegram_id: int | None = None,
+    conn: Connection = Depends(db.get_conn),
+) -> Users:
+    users = await read_users(conn, user_id=user_id, telegram_id=telegram_id)
     return Users(users=users)
 
 
 @router.get("/{user_id}")
 async def get_user(
-    user_id: Annotated[int, "User ID"],
+    user_id: int,
     conn: Connection = Depends(db.get_conn),
 ) -> User:
     try:
-        user = await read_user(conn, user_id)
+        user = await read_user(conn, user_id=user_id)
     except NotFoundError as ex:
         raise HTTPException(404, ex.message)
 

@@ -142,7 +142,11 @@ async def read_alert(
 
 async def read_alerts(
     conn: Connection,
-    user_id: int
+    user_id: int,
+    symbol_id: int | None = None,
+    is_sent: bool | None = None,
+    is_active: bool | None = None,
+    triggerd: bool | None = None,
 ) -> list:
     """The functions reads alerts from DB
 
@@ -153,11 +157,38 @@ async def read_alerts(
     Returns:
         list[dict]: list of alert records
     """    
-    res = await conn.fetch("""
-        SELECT * FROM alerts
-        WHERE user_id = $1
-        ORDER BY id
-    """, user_id)
+    query_conditions = []
+    params = []
+
+    if user_id is not None:
+        query_conditions.append("user_id = $1")
+        params.append(user_id)
+
+    if symbol_id is not None:
+        param_position = len(params) + 1  # Set the correct ordinal position for the parameter
+        query_conditions.append(f"symbol_id = ${param_position}")
+        params.append(symbol_id)
+
+    if is_sent is not None:
+        param_position = len(params) + 1  # Set the correct ordinal position for the parameter
+        query_conditions.append(f"is_sent = ${param_position}")
+        params.append(is_sent)
+
+    if is_active is not None:
+        param_position = len(params) + 1  # Set the correct ordinal position for the parameter
+        query_conditions.append(f"is_active = ${param_position}")
+        params.append(is_active)
+
+    if triggerd is not None:
+        param_position = len(params) + 1  # Set the correct ordinal position for the parameter
+        query_conditions.append(f"triggered = ${param_position}")
+        params.append(triggerd)
+    
+    conditions_str = " AND ".join(query_conditions)
+    where_clause = f"WHERE {conditions_str}" if conditions_str else ""
+    query = f"SELECT * FROM alerts {where_clause} ORDER BY id"
+    
+    res = await conn.fetch(query, *params)
 
     return [dict(record) for record in res]
 

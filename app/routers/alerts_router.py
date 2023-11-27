@@ -9,7 +9,7 @@ from models.alerts import (
     read_alerts,
     delete_alert,
 )
-from models.exceptions import NotFoundError, UniqueViolationError, ParamsError
+from models.exceptions import NotFoundError, ParamsError
 from models.alerts_api import Alert, NewAlertWithoutId, Alert, AlertUpdate, Alerts
 
 
@@ -50,8 +50,22 @@ async def put_alert(
 
 
 @router.get("/")
-async def get_alerts(user_id: int, conn: Connection = Depends(db.get_conn)) -> Alerts:
-    alerts = await read_alerts(conn, user_id)
+async def get_alerts(
+    user_id: int,
+    symbol_id: int | None = None,
+    is_sent: bool | None = None,
+    is_active: bool | None = None,
+    triggerd: bool | None = None,
+    conn: Connection = Depends(db.get_conn),
+) -> Alerts:
+    alerts = await read_alerts(
+        conn=conn,
+        user_id=user_id,
+        symbol_id=symbol_id,
+        is_sent=is_sent,
+        is_active=is_active,
+        triggerd=triggerd,
+    )
     return Alerts(alerts=alerts)
 
 

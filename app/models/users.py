@@ -49,42 +49,54 @@ async def add_user(
 
 async def read_user(
     conn: Connection,
-    id: int
+    user_id: int | None = None,
 ) -> dict:
-    """The functions reads the user from DB
-
-    Args:
-        conn (Connection): DB connection
-        id (int): DB user id
-
+    """The function reads the user from the DB.
     Returns:
-        dict: user record
+        dict: User record.
     """    
-    res = await conn.fetchrow("""
-        SELECT * FROM users
-        WHERE id = $1
-    """, id)
+    query = f"SELECT * FROM users WHERE id = $1"
+    
+    res = await conn.fetchrow(query, user_id)
+    
     if not res:
-        raise NotFoundError(f'A user with id {id} not found.')
+        raise NotFoundError('No user found with the provided user_id.')
 
-    return res
+    return dict(res)
 
 
 async def read_users(
     conn: Connection,
+    user_id: int | None = None,
+    telegram_id: int | None = None,
 ) -> list:
     """The functions reads users from DB
 
     Args:
         conn (Connection): DB connection
+        user_id (int | None, optional): User ID to filter by. Defaults to None.
+        telegram_id (int | None, optional): Telegram ID to filter by. Defaults to None.
 
     Returns:
         list[dict]: list of user records
     """    
-    res = await conn.fetch("""
-        SELECT * FROM users
-        ORDER BY id
-    """)
+    query_conditions = []
+    params = []
+
+    if user_id is not None:
+        query_conditions.append("id = $1")
+        params.append(user_id)
+
+    if telegram_id is not None:
+        param_position = len(params) + 1  # Set the correct ordinal position for the parameter
+        query_conditions.append(f"telegram_id = ${param_position}")
+        params.append(telegram_id)
+    
+    conditions_str = " AND ".join(query_conditions)
+    where_clause = f"WHERE {conditions_str}" if conditions_str else ""
+    query = f"SELECT * FROM users {where_clause} ORDER BY id"
+    
+    res = await conn.fetch(query, *params)
 
     return [dict(record) for record in res]
 
