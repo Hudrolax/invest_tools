@@ -2,7 +2,7 @@
 
 set -e
 
-python db/wait_for_db.py
+python core/wait_for_db.py
 
 # start the backup script in the background
 if [ "$DEV" != "true" ]; then
@@ -16,6 +16,6 @@ if [ "$DEV" != "true" ]; then
 fi
 cd /app
 
-python apply_migrations.py
+alembic upgrade head
 
 exec python main.py

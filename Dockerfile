@@ -32,8 +32,14 @@ RUN python -m venv /py && \
   fi && \
   apk del .build-deps && \
   rm -rf /tmp && \
-  chmod -R +x /scripts
+  chmod -R +x /scripts && \
+    adduser \
+  --disabled-password \
+  --no-create-home \
+  www
 
 ENV PATH="/scripts:/py/bin:$PATH"
+
+USER www
 
 CMD ["run.sh"]

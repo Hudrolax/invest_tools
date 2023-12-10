@@ -1,29 +1,32 @@
 import asyncio
 from contextlib import asynccontextmanager
+import core.config
 from fastapi import FastAPI
-import config
-from db.db_connection import db
 from uvicorn.config import Config
 from uvicorn.server import Server
-from routers.brokers_router import router as brokers_router
-from routers.users_router import router as users_router
-from routers.symbols_router import router as symbols_router
-from routers.alerts_router import router as alerts_router
+
+from core.db import sessionmanager
+from routers.user_router import router as user_router
+from routers.symbol_router import router as symbol_router
+from routers.alert_router import router as alert_router
+from routers.broker_router import router as broker_router
+
+from tasks import task_run_market_streams
+from tasks import task_update_market_data
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await db.on_startup()
     yield
     stop_event.set()
-    await db.on_shutdown()
+    await sessionmanager.close()
 
 
 app = FastAPI(lifespan=lifespan) # type: ignore
-app.include_router(brokers_router)
-app.include_router(users_router)
-app.include_router(symbols_router)
-app.include_router(alerts_router)
+app.include_router(user_router)
+app.include_router(symbol_router)
+app.include_router(alert_router)
+app.include_router(broker_router)
 
 stop_event = asyncio.Event()
 
@@ -37,6 +40,8 @@ async def run_fastapi():
 async def main() -> None:
     await asyncio.gather(
         run_fastapi(),
+        task_run_market_streams(stop_event, sessionmanager),
+        task_update_market_data(stop_event),
     )
 
 if __name__ == "__main__":
