@@ -143,7 +143,6 @@ async def get_alerts_telegram_bot_api(
     authorized: bool = Depends(telegram_bot_authorized),
     db: AsyncSession = Depends(get_db),
 ) -> list[Alert]:
-    print(f'is_triggerd = {is_triggered}')
     try:
         alerts = await AlertORM.get_filtered_alerts(
             db=db,
