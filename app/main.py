@@ -22,7 +22,10 @@ async def lifespan(app: FastAPI):
     await sessionmanager.close()
 
 
-app = FastAPI(lifespan=lifespan) # type: ignore
+app = FastAPI(
+    lifespan=lifespan, # type: ignore
+    # openapi_prefix="/",
+)
 app.include_router(user_router)
 app.include_router(symbol_router)
 app.include_router(alert_router)
