@@ -4,10 +4,9 @@ from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.orm import attributes as orm_attributes
 from fastapi import APIRouter, Depends, HTTPException
 from decimal import Decimal
-from typing import Literal
 from datetime import datetime
 
-from brokers.binance import binance_symbols, BinanceBrokers
+from brokers.binance import binance_symbols
 from routers import check_token, telegram_bot_authorized
 from core.db import get_db
 from models.alert import AlertORM, Triggers

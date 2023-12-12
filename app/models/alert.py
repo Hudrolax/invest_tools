@@ -162,8 +162,11 @@ class AlertORM(Base):
             query = query.filter(AlertORM.user_id == user.id)
         if broker_name is not None:
             query = query.join(AlertORM.symbol).join(SymbolORM.broker).filter(BrokerORM.name == broker_name)
+        # if symbol_name is not None:
+        #     query = query.join(AlertORM.symbol).filter(SymbolORM.name == symbol_name)
         if symbol_name is not None:
-            query = query.join(AlertORM.symbol).filter(SymbolORM.name == symbol_name)
+            pattern = f"%{symbol_name}%"
+            query = query.join(AlertORM.symbol).filter(SymbolORM.name.like(pattern))
         if is_active is not None:
             query = query.filter(AlertORM.is_active == is_active)
         if is_sent is not None:
