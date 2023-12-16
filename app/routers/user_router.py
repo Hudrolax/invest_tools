@@ -82,7 +82,6 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
         user = await UserORM.get_by_username(db, user_data.username)
         if user.verify_password(user_data.password):
             token = create_access_token(user_data.model_dump(exclude_unset=True))
-            await asyncio.sleep(5)
             return dict(user_id=user.id, token=token)
         else:
             raise HTTPException(401, 'Wrong password')
