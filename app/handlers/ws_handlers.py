@@ -1,5 +1,6 @@
 from brokers.binance import BinanceTimeframes, BinanceBrokers, BinanceMarketStreamTypes
 from .alerts import handle_alerts
+from .rates import handle_rates
 
 
 async def ws_kline_handler(
@@ -35,3 +36,4 @@ async def ws_ticker_handler(
 
     # handling alerts
     await handle_alerts(broker, symbol, data['c'])
+    await handle_rates(broker, symbol, data['c'])

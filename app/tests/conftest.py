@@ -27,8 +27,14 @@ from models.token import TokenORM
 
 from brokers.binance import binance_symbols
 
+from routers import create_access_token
+
 binance_symbols['Binance-spot'].append('BTCUSDT')
+binance_symbols['Binance-spot'].append('BTCRUB')
+binance_symbols['Binance-spot'].append('BTCARS')
 binance_symbols['Binance-spot'].append('ETHUSDT')
+binance_symbols['Binance-spot'].append('USDTRUB')
+binance_symbols['Binance-spot'].append('USDTARS')
 
 async def new_broker(db_session: AsyncSession, name: str = 'Binance-spot') -> BrokerORM:
     return await BrokerORM.create(db=db_session, name=name)
@@ -204,3 +210,20 @@ async def token(db_session: AsyncSession):
     user = await new_user(db_session, username='Authorized user', email='authorized@example.com')
     token = await TokenORM.create(db_session, user_id=user.id, token='test_token', description='test token') 
     yield token.token
+
+
+@pytest.fixture
+async def jwt_token(db_session: AsyncSession):
+    user = await new_user(db_session, username='Authorized user', email='authorized@example.com')
+    token = create_access_token(user.to_dict())
+    yield token, user
+
+
+@pytest.fixture
+async def symbols(db_session: AsyncSession):
+    broker = await BrokerORM.get_by_name(db_session, name='Binance-spot')
+    await SymbolORM.create(db_session, name='BTCUSDT', broker_id=broker.id, rate=Decimal('43000'))
+    await SymbolORM.create(db_session, name='BTCARS', broker_id=broker.id, rate=Decimal('40536000'))
+    await SymbolORM.create(db_session, name='BTCRUB', broker_id=broker.id, rate=Decimal('3875000'))
+    await SymbolORM.create(db_session, name='USDTRUB', broker_id=broker.id, rate=Decimal('94.82'))
+    await SymbolORM.create(db_session, name='USDTARS', broker_id=broker.id, rate=Decimal('980.25'))

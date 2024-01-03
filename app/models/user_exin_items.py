@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, select, asc
+from sqlalchemy import Column, Integer, select, asc, ForeignKey, and_, UniqueConstraint
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
@@ -7,14 +7,20 @@ from typing import Self
 from core.db import Base
 
 
-class BrokerORM(Base):
-    __tablename__ = "brokers"
-    id = Column(Integer, primary_key=True, index=True) # type: ignore
-    name = Column(String, unique=True, nullable=False) # type: ignore
-    symbols = relationship('SymbolORM', back_populates='broker', cascade="all, delete")
+class UserExInItemORM(Base):
+    __tablename__ = "user_exin_items"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    exin_item_id = Column(Integer, ForeignKey('exin_items.id', ondelete='CASCADE'), nullable=False)
+    __table_args__ = (
+        UniqueConstraint('user_id', 'exin_item_id', name='_user_exin_items_user_id_exin_item_id_uc'),
+    )
+
+    user = relationship('UserORM', back_populates='user_exin_items')
+    exin_item = relationship('ExInItemORM', back_populates='users')
 
     def __str__(self) -> str:
-        return f'{self.name}'
+        return f'user_id {self.user_id} wallet_id {self.wallet_id}'
 
     @classmethod
     async def create(cls, db: AsyncSession, **kwargs) -> Self:
@@ -34,7 +40,7 @@ class BrokerORM(Base):
             existing_entry = await db.get(cls, id)
             if not existing_entry:
                 raise NoResultFound
-            
+
             # обновление полей записи
             for attr, value in kwargs.items():
                 setattr(existing_entry, attr, value)
@@ -44,7 +50,7 @@ class BrokerORM(Base):
             await db.rollback()
             raise
         return existing_entry
-    
+
     @classmethod
     async def delete(cls, db: AsyncSession, id: int) -> bool:
         try:
@@ -69,31 +75,22 @@ class BrokerORM(Base):
         return result
 
     @classmethod
-    async def get_by_name(cls, db: AsyncSession, name: str) -> Self:
-        result = (await db.scalars(select(cls).where(cls.name == name))).first()
-        if not result:
-            raise NoResultFound
-        return result
+    async def get_list(cls, db: AsyncSession, **filters) -> list[Self]:
+        """Returns filtered list of instances."""
+        query = select(cls).order_by(asc(cls.id))
 
-    @classmethod
-    async def get_filtered(cls, db: AsyncSession, **kwargs) -> Self:
-        conditions = []
+        if filters:
+            filter_clauses = []
+            for key, value in filters.items():
+                if value is not None:
+                    if isinstance(value, list):
+                        # Если значение - список, используем оператор in_
+                        filter_clauses.append(getattr(cls, key).in_(value))
+                    else:
+                        # Для обычных значений используем равенство
+                        filter_clauses.append(getattr(cls, key) == value)
 
-        for key, value in kwargs.items():
-            conditions.append(getattr(cls, key) == value)
+            query = query.filter(and_(*filter_clauses))
 
-        query = select(cls).where(*conditions)
-
-        # Если нет условий фильтрации, вернет первую запись по умолчанию
-        result = await db.scalars(query)
-        symbol = result.first()
-
-        if not symbol:
-            raise NoResultFound("No matching symbol found")
-
-        return symbol
-
-    @classmethod
-    async def get_all(cls, db: AsyncSession) -> list[Self]:
-        result = await db.execute(select(cls).order_by(asc(cls.id)))  # сортировка по возрастанию id
+        result = await db.execute(query)
         return list(result.scalars().all())

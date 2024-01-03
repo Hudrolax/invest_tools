@@ -63,7 +63,7 @@ async def put_broker(
 @router.get("/", response_model=list[Broker])
 async def get_brokers(
     db: AsyncSession = Depends(get_db),
-    # user: UserORM = Depends(check_token),
+    user: UserORM = Depends(check_token),
 ):
     return await BrokerORM.get_all(db)
 
@@ -71,7 +71,7 @@ async def get_brokers(
 @router.get("/{broker_id}", response_model=Broker)
 async def get_broker(
     broker_id: int,
-    # user: UserORM = Depends(check_token),
+    user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> Broker:
     try:
@@ -83,7 +83,7 @@ async def get_broker(
 @router.delete("/{broker_id}", response_model=bool)
 async def del_broker(
     broker_id: int,
-    # user: UserORM = Depends(check_token),
+    user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> bool:
     try:

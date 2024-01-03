@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, select, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, select, ForeignKey, UniqueConstraint, DECIMAL, or_, func
 from sqlalchemy.orm import relationship, aliased, joinedload
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Self, Sequence
+from decimal import Decimal
 
 from core.db import Base
 from models.broker import BrokerORM
@@ -13,6 +14,7 @@ class SymbolORM(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     broker_id = Column(Integer, ForeignKey('brokers.id', ondelete='CASCADE'), nullable=False)
+    rate = Column(DECIMAL(precision=20, scale=8), default=Decimal(1))
     __table_args__ = (
         UniqueConstraint('name', 'broker_id', name='_symbol_name_broker_id_uc'),
     )
@@ -96,27 +98,39 @@ class SymbolORM(Base):
         )
         return result.scalars().all()
 
+
     @classmethod
-    async def get_filtered(cls, db: AsyncSession, **kwargs) -> 'SymbolORM':
+    async def get_list(cls, db: AsyncSession, **kwargs) -> list['SymbolORM']:
         conditions = []
 
-        for key, value in kwargs.items():
-            # Отделяем случай фильтрации по `broker_name`
-            if key == 'broker_name':
-                # Создаем псевдоним для таблицы `BrokerORM` при необходимости соединения
-                broker_alias = aliased(BrokerORM)
-                conditions.append(broker_alias.name == value)
-            else:
-                # Для других полей используем атрибуты класса напрямую
-                conditions.append(getattr(cls, key) == value)
+        # Проверка идентификаторов
+        if 'symbol_ids' in kwargs and kwargs['symbol_ids'] is not None:
+            conditions.append(cls.id.in_(kwargs['symbol_ids']))
 
-        query = select(cls).join(BrokerORM, isouter=True).where(*conditions)
+        # Проверка названий символов
+        if 'symbol_names' in kwargs and kwargs['symbol_names'] is not None:
+            conditions.append(cls.name.in_([name.upper() for name in kwargs['symbol_names']]))
 
-        # Если нет условий фильтрации, вернет первую запись по умолчанию
+        # Подготовка запроса с условием для соединения
+        query = select(cls).join(BrokerORM, cls.broker_id == BrokerORM.id, isouter=True)
+
+        # Проверка названия брокера
+        if 'broker_name' in kwargs and kwargs['broker_name'] is not None:
+            broker_alias = aliased(BrokerORM)
+            query = query.join(broker_alias, cls.broker_id == broker_alias.id)
+            conditions.append(broker_alias.name == kwargs['broker_name'])
+
+        # Проверка названий валют
+        if 'currency_names' in kwargs and kwargs['currency_names'] is not None:
+            currency_conditions = []
+            for currency_name in kwargs['currency_names']:
+                upper_currency_name = currency_name.upper()
+                currency_conditions.append(func.upper(cls.name).like(f"{upper_currency_name}%"))
+                currency_conditions.append(func.upper(cls.name).like(f"%{upper_currency_name}"))
+            conditions.append(or_(*currency_conditions))
+
+        if conditions:
+            query = query.where(*conditions)
+
         result = await db.scalars(query)
-        symbol = result.first()
-
-        if not symbol:
-            raise NoResultFound("No matching symbol found")
-
-        return symbol
+        return list(result.all())

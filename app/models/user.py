@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, BIGINT, BOOLEAN, String, select, asc
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
-from typing import Self, Sequence
+from typing import Self, Sequence, Any
 from passlib.context import CryptContext
 
 from core.db import Base
@@ -22,6 +22,9 @@ class UserORM(Base):
 
     alerts = relationship('AlertORM', back_populates='user', cascade="all, delete")
     tokens = relationship('TokenORM', back_populates='user', cascade="all, delete")
+    wallet_transactions = relationship('WalletTransactionORM', back_populates='user', cascade="all, delete")
+    user_wallets = relationship('UserWalletsORM', back_populates='user', cascade="all, delete")
+    user_exin_items = relationship('UserExInItemORM', back_populates='user', cascade="all, delete")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -32,6 +35,9 @@ class UserORM(Base):
     def set_password(self, password: str) -> None:
         self.hashed_password = pwd_context.hash(password)
     
+    def to_dict(self) -> dict[str, Any]:
+        return {key: value for key, value in self.__dict__.items() if not key.startswith('_')}
+
     @classmethod
     async def validate(cls, user: 'UserORM.instance', db: AsyncSession) -> None:
         if not (user.telegram_id or user.email):

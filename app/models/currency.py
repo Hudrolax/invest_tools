@@ -5,13 +5,17 @@ from sqlalchemy.orm import relationship
 from typing import Self
 
 from core.db import Base
+from brokers.binance import binance_symbols
+from models.symbol import SymbolORM
+from models.broker import BrokerORM
 
 
-class BrokerORM(Base):
-    __tablename__ = "brokers"
-    id = Column(Integer, primary_key=True, index=True) # type: ignore
-    name = Column(String, unique=True, nullable=False) # type: ignore
-    symbols = relationship('SymbolORM', back_populates='broker', cascade="all, delete")
+class CurrencyORM(Base):
+    __tablename__ = "currencies"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+
+    wallets = relationship('WalletORM', back_populates='currency', cascade="all, delete")
 
     def __str__(self) -> str:
         return f'{self.name}'
@@ -21,6 +25,17 @@ class BrokerORM(Base):
         try:
             transaction = cls(**kwargs)
             db.add(transaction)
+
+            # add symbols with this currency
+            broker = await BrokerORM.get_by_name(db, 'Binance-spot')
+            broker_id = broker.id
+            actual_symbols = ['BTCUSDT', 'BTCRUB', 'BTCARS', 'USDTRUB', 'USDTARS']
+            for symbol_name in actual_symbols:
+                if symbol_name in binance_symbols['Binance-spot']:
+                    symbols = await SymbolORM.get_list(db, symbol_names=[symbol_name], broker_name=broker.name)
+                    if not symbols:
+                        await SymbolORM.create(db, name=symbol_name, broker_id=broker_id)
+
             await db.flush()
         except IntegrityError:
             await db.rollback()
@@ -67,31 +82,6 @@ class BrokerORM(Base):
         if not result:
             raise NoResultFound
         return result
-
-    @classmethod
-    async def get_by_name(cls, db: AsyncSession, name: str) -> Self:
-        result = (await db.scalars(select(cls).where(cls.name == name))).first()
-        if not result:
-            raise NoResultFound
-        return result
-
-    @classmethod
-    async def get_filtered(cls, db: AsyncSession, **kwargs) -> Self:
-        conditions = []
-
-        for key, value in kwargs.items():
-            conditions.append(getattr(cls, key) == value)
-
-        query = select(cls).where(*conditions)
-
-        # Если нет условий фильтрации, вернет первую запись по умолчанию
-        result = await db.scalars(query)
-        symbol = result.first()
-
-        if not symbol:
-            raise NoResultFound("No matching symbol found")
-
-        return symbol
 
     @classmethod
     async def get_all(cls, db: AsyncSession) -> list[Self]:

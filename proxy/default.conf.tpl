@@ -1,5 +1,6 @@
 server {
   listen ${LISTEN_PORT};
+  access_log off;
 
   location /static {
     alias /vol/static;
@@ -17,7 +18,7 @@ server {
     proxy_buffer_size 64k;
   }
 
-  location / {
+  location /api/v1/ {
     proxy_pass http://backend:9000/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade "$http_upgrade";

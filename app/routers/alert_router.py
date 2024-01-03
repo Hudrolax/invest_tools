@@ -6,8 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from decimal import Decimal
 from datetime import datetime
 
-from brokers.binance import binance_symbols
-from routers import check_token, telegram_bot_authorized
+from routers import check_token, telegram_bot_authorized, check_symbol_name
 from core.db import get_db
 from models.alert import AlertORM, Triggers
 from models.user import UserORM
@@ -55,11 +54,6 @@ router = APIRouter(
     tags=["alerts"],
     responses={404: {"description": "Alert not found"}},
 )
-
-def check_symbol_name(symbol_name: str, broker_name: str):
-    if not symbol_name in binance_symbols[broker_name]:
-        raise ValueError(f'Unexisiting symbol with name {symbol_name}')
-
 
 @router.post("/", response_model=Alert)
 async def post_alert(
