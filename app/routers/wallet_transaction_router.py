@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, IntegrityError
+from sqlalchemy.future import select
 from fastapi import APIRouter, Depends, HTTPException
 from decimal import Decimal
 from datetime import datetime
@@ -10,6 +11,7 @@ from core.db import get_db
 from routers import check_token
 from models.user import UserORM
 from models.wallet_transaction import WalletTransactionORM
+from models.user_wallets import UserWalletsORM
 
 
 class TransactionInstanceBase(BaseModel):
@@ -59,6 +61,7 @@ class Transaction(TransactionInstanceBase):
     model_config = ConfigDict(from_attributes=True)
     wallet_id: int
     user_id: int
+    user_name: str
     id: int
     doc_id: str
 
@@ -69,8 +72,30 @@ router = APIRouter(
     responses={404: {"description": "Wallet transaction not found"}},
 )
 
+async def get_trzs_with_user_name(
+    db: AsyncSession,
+    transaction_records: list[WalletTransactionORM],
+) -> list[Transaction]:
+    # Получаем информацию о пользователях для каждой транзакции
+    transactions_with_users = []
+    for trz in transaction_records:
+        query = select(UserORM.name).where(UserORM.id == trz.user_id)
+        result = await db.execute(query)
+        user_name = result.scalar_one_or_none()
+        transactions_with_users.append((trz, user_name))
+
+    # Преобразование в Pydantic модели
+    transactions = []
+    for trz, user_name in transactions_with_users:
+        trz_data = trz.__dict__.copy()
+        trz_data['user_name'] = user_name
+        transactions.append(Transaction(**trz_data))
+
+    return transactions
+
 
 async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[Transaction]:
+    transaction_records = []
     try:
         if data.wallet_to_id:
             # exchange
@@ -91,13 +116,15 @@ async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[Transact
                 amount = -data.amount,
                 **payload
             )
+            payload['doc_id'] = wt_from.doc_id # type: ignore
+            payload['date'] = wt_from.date # type: ignore
             wt_to = await WalletTransactionORM.create(db=db, 
                 wallet_id = data.wallet_to_id,
                 amount = data.amount * data.exchange_rate,
                 **payload
             )
 
-            return [wt_from, wt_to]
+            transaction_records = [wt_from, wt_to]
         else:
             # regular operation
             if not data.wallet_from_id:
@@ -116,7 +143,9 @@ async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[Transact
             )
             wt = await WalletTransactionORM.create(db=db, **payload)
 
-            return [wt]
+            transaction_records = [wt]
+        
+        return await get_trzs_with_user_name(db, transaction_records)
     except IntegrityError as ex:
         raise HTTPException(422, str(ex))
 
@@ -165,15 +194,32 @@ async def get_wallet_transactions(
     comment: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
-) -> list[WalletTransactionORM]:
-    return await WalletTransactionORM.get_list(db, 
-        user_id=user.id,
+    last_n: int = 100
+) -> list[Transaction]:
+    if wallet_id:
+        wallet_ids = [wallet_id]
+    else:
+        # get available wallets for the user
+        user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
+        wallet_ids = [uw.wallet_id for uw in user_wallets]
+
+    # get transactions list for user's wallets
+    params = dict(
         doc_id=doc_id,
         id=id,
-        wallet_id=wallet_id,
+        wallet_id=wallet_ids,
         exin_item_id=exin_item_id,
         comment=comment
     )
+    if wallet_id:
+        params['user_id'] = user.id # type: ignore
+
+    transaction_records = await WalletTransactionORM.get_list(db, 
+        **params
+    )
+    # get last N records
+    transaction_records = transaction_records[-last_n:]
+    return await get_trzs_with_user_name(db, transaction_records)
 
 
 @router.get("/{doc_id}", response_model=list[Transaction])
@@ -181,11 +227,11 @@ async def get_wallet_transaction(
     doc_id: str,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
-) -> list[WalletTransactionORM]:
-    trz_list = await WalletTransactionORM.get_list(db, doc_id=doc_id)
-    if not trz_list:
+) -> list[Transaction]:
+    transaction_records = await WalletTransactionORM.get_list(db, doc_id=doc_id)
+    if not transaction_records:
         raise HTTPException(404, f'Document with id {doc_id} not found.')
-    return trz_list
+    return await get_trzs_with_user_name(db, transaction_records)
 
 
 @router.delete("/{doc_id}", response_model=bool)

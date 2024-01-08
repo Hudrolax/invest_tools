@@ -13,7 +13,8 @@ async def test_create_user(client: AsyncClient):
         username='New user',
         password='123',
         telegram_id=123,
-        email='user@example.com'
+        email='user@example.com',
+        name='John Doe'
     )
     response = await client.post("/users/register", json=payload)
     assert response.status_code == 200
@@ -21,6 +22,7 @@ async def test_create_user(client: AsyncClient):
     assert result['username'] == payload['username']
     assert result['telegram_id'] == payload['telegram_id']
     assert result['email'] == payload['email']
+    assert result['name'] == payload['name']
 
     # another one user with same name
     payload = dict(
@@ -66,6 +68,7 @@ async def test_create_user_wrong(client: AsyncClient, db_session: AsyncSession):
         username='empty user',
         password='123',
         telegram_id=123456,
+        name='John Doe'
     )
     response = await client.post("/users/register", json=payload)
     assert response.status_code == 200
@@ -75,6 +78,7 @@ async def test_create_user_wrong(client: AsyncClient, db_session: AsyncSession):
         username='empty user2',
         password='123',
         email='onlyemail@example.com',
+        name='John Doe'
     )
     response = await client.post("/users/register", json=payload)
     assert response.status_code == 200

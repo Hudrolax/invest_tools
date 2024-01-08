@@ -14,6 +14,7 @@ class UserBase(BaseModel):
     username: str | None = None
     telegram_id: int | None = None
     email: str | None = None
+    name: str | None = None
 
 
 class UserLogin(BaseModel):
@@ -22,6 +23,7 @@ class UserLogin(BaseModel):
 
 
 class UserCreate(UserLogin):
+    name: str
     telegram_id: int | None = None
     email: str | None = None
 
@@ -70,6 +72,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
             password=user_data.password,
             telegram_id=user_data.telegram_id,
             email=user_data.email,
+            name=user_data.name
         )
         return user
     except ValueError as ex:

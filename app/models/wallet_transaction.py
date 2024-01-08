@@ -149,16 +149,21 @@ class WalletTransactionORM(Base):
 
     @classmethod
     async def get_list(cls, db: AsyncSession, **filters) -> list[Self]:
-        """Returns filtered list of instances"""
+        """Returns filtered list of instances."""
         query = select(cls).order_by(asc(cls.id))
 
-        filter_clauses = [getattr(cls, key) == value for key, value in filters.items() if value is not None]
-        
-        if filter_clauses:
+        if filters:
+            filter_clauses = []
+            for key, value in filters.items():
+                if value is not None:
+                    if isinstance(value, list):
+                        # Если значение - список, используем оператор in_
+                        filter_clauses.append(getattr(cls, key).in_(value))
+                    else:
+                        # Для обычных значений используем равенство
+                        filter_clauses.append(getattr(cls, key) == value)
+
             query = query.filter(and_(*filter_clauses))
-        else:
-            # Используется true() для создания условия, которое всегда истинно
-            query = query.filter(true())
 
         result = await db.execute(query)
         return list(result.scalars().all())

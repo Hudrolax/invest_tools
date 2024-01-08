@@ -75,7 +75,7 @@ async def get_exin_items(
 ):
     users_exin_items = await UserExInItemORM.get_list(db, user_id=user.id)
 
-    return await ExInItemORM.get_list(db, id=[item.id for item in users_exin_items])
+    return await ExInItemORM.get_list(db, id=[item.exin_item_id for item in users_exin_items])
 
 
 @router.get("/{exin_item_id}", response_model=ExInItem)

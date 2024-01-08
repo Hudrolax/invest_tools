@@ -15,6 +15,7 @@ class UserORM(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=True, default='user')
     hashed_password = Column(String)
     telegram_id = Column(BIGINT, index=True)
     email = Column(String, index=True)

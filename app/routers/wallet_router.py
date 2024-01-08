@@ -84,7 +84,7 @@ async def get_wallets(
 ):
     user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
 
-    return await WalletORM.get_list(db, id=[item.id for item in user_wallets])
+    return await WalletORM.get_list(db, id=[item.wallet_id for item in user_wallets])
 
 
 @router.get("/{wallet_id}", response_model=Wallet)

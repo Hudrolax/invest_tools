@@ -61,6 +61,8 @@ async def test_create_wallet_transaction_regular(
     assert result['amountRUB'] == '-1194.14'
     assert result['comment'] == payload['comment']
     assert result['doc_id']
+    assert result['user_id'] == user.id
+    assert result['user_name'] == user.name
     assert isinstance(datetime.fromisoformat(result['date']), datetime)
 
     # check wallet balance
@@ -101,6 +103,9 @@ async def test_create_wallet_transaction_exchange(
     assert result[1]['wallet_id'] == payload['wallet_to_id']
     assert result[1]['amount'] == '288000'
     assert result[1]['comment'] == payload['comment']
+
+    assert result[0]['doc_id'] == result[1]['doc_id']
+    assert result[0]['date'] == result[1]['date']
 
     # check wallet balance
     await db_session.refresh(wallet1)
@@ -330,10 +335,13 @@ async def test_get_wallet_transaction_list(
     assert result[0]['user_id'] == payload['user_id']
     assert result[0]['doc_id'] == trz1.doc_id
     assert result[0]['id'] == trz1.id
+    assert result[0]['user_name'] == user.name
     assert result[1]['doc_id'] == trz2.doc_id
     assert result[1]['id'] == trz2.id
+    assert result[1]['user_name'] == user.name
     assert result[2]['doc_id'] == trz3.doc_id
     assert result[2]['id'] == trz3.id
+    assert result[2]['user_name'] == user.name
 
     response = await client.get(f"/wallet_transactions/", headers=headers, params=dict(comment='xxx'))
     assert response.status_code == 200

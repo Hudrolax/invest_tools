@@ -36,17 +36,27 @@ binance_symbols['Binance-spot'].append('ETHUSDT')
 binance_symbols['Binance-spot'].append('USDTRUB')
 binance_symbols['Binance-spot'].append('USDTARS')
 
+
 async def new_broker(db_session: AsyncSession, name: str = 'Binance-spot') -> BrokerORM:
     return await BrokerORM.create(db=db_session, name=name)
+
 
 async def new_user(
     db_session: AsyncSession,
     username: str = 'John Doe',
     password: str = '123',
     telegram_id: int = 123,
-    email: str = 'user@example.com'
+    email: str = 'user@example.com',
+    name: str = 'user'
 ) -> UserORM:
-    return await UserORM.create(db=db_session, username=username, password=password, telegram_id=telegram_id, email=email)
+    return await UserORM.create(
+        db=db_session,
+        username=username,
+        password=password,
+        telegram_id=telegram_id,
+        email=email,
+        name=name,
+    )
 
 
 async def make_user(
@@ -56,8 +66,9 @@ async def make_user(
     telegram_id: int = 123,
     email: str = 'user@example.com',
     token: str = '123',
+    name: str = 'user',
 ) -> tuple[UserORM, TokenORM]:
-    user = await UserORM.create(db, username=username, password=password, telegram_id=telegram_id, email=email)
+    user = await UserORM.create(db, username=username, password=password, telegram_id=telegram_id, email=email, name=name)
     token = await TokenORM.create(db, user_id=user.id, token='123', description='new token')
     return user, token
 
@@ -97,7 +108,8 @@ async def new_alert(
 
 # test base name and URL
 test_db_name = 'test_db'
-TEST_DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{test_db_name}"
+TEST_DATABASE_URL = f"postgresql+asyncpg://{
+    DB_USER}:{DB_PASS}@{DB_HOST}/{test_db_name}"
 
 
 @pytest.fixture(autouse=True)
@@ -105,6 +117,7 @@ def app():
     """Fixture for wrapping an app"""
     with ExitStack():
         yield actual_app
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -130,7 +143,8 @@ def run_migrations(connection: Connection) -> None:
     def upgrade(rev, context):
         return script._upgrade_revs("head", rev)
 
-    context = MigrationContext.configure(connection, opts={"target_metadata": Base.metadata, "fn": upgrade}) # type: ignore
+    context = MigrationContext.configure(
+        connection, opts={"target_metadata": Base.metadata, "fn": upgrade}) # type: ignore
 
     with context.begin_transaction():
         with Operations.context(context):
@@ -142,7 +156,8 @@ async def setup_database() -> AsyncGenerator[DatabaseSessionManager, Any]:
     # Run alembic migrations on test DB
     async with sessionmanager.connect() as connection:
         await connection.execute(text('COMMIT'))
-        await connection.execute(text(f'DROP DATABASE IF EXISTS {test_db_name}'))  # Попытка удалить базу данных
+        # Попытка удалить базу данных
+        await connection.execute(text(f'DROP DATABASE IF EXISTS {test_db_name}'))
         await connection.execute(text(f'CREATE DATABASE {test_db_name}'))
 
     # make a new sessionmanager
@@ -156,11 +171,12 @@ async def setup_database() -> AsyncGenerator[DatabaseSessionManager, Any]:
         yield test_sessionmanager
     finally:
         await test_sessionmanager.close()
-    
+
     # drop test DB after testing
     async with sessionmanager.connect() as connection:
         await connection.execute(text('COMMIT'))
-        await connection.execute(text(f'DROP DATABASE IF EXISTS {test_db_name}'))  # Попытка удалить базу данных
+        # Попытка удалить базу данных
+        await connection.execute(text(f'DROP DATABASE IF EXISTS {test_db_name}'))
 
     await sessionmanager.close()
 
@@ -177,11 +193,11 @@ async def db_session(setup_database) -> AsyncGenerator[AsyncSession, Any]:
             await session.rollback()
             # # Turn off the foreign key constraint checks for DB cleaning,
             # await session.execute(text("SET CONSTRAINTS ALL DEFERRED;"))
-            
+
             # # Iterate through all tables and clear data
             # for table_name in reversed(Base.metadata.sorted_tables):
             #     await session.execute(text(f"TRUNCATE TABLE {table_name.name} RESTART IDENTITY CASCADE;"))
-            
+
             # # Turn on the foreign key constraint checks
             # await session.execute(text("SET CONSTRAINTS ALL IMMEDIATE;"))
 
@@ -208,7 +224,7 @@ async def client(app) -> AsyncGenerator[AsyncClient, Any]:
 @pytest.fixture
 async def token(db_session: AsyncSession):
     user = await new_user(db_session, username='Authorized user', email='authorized@example.com')
-    token = await TokenORM.create(db_session, user_id=user.id, token='test_token', description='test token') 
+    token = await TokenORM.create(db_session, user_id=user.id, token='test_token', description='test token')
     yield token.token
 
 
