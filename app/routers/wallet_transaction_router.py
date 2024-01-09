@@ -12,6 +12,7 @@ from routers import check_token
 from models.user import UserORM
 from models.wallet_transaction import WalletTransactionORM
 from models.user_wallets import UserWalletsORM
+from models.user_exin_items import UserExInItemORM
 
 
 class TransactionInstanceBase(BaseModel):
@@ -203,12 +204,20 @@ async def get_wallet_transactions(
         user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
         wallet_ids = [uw.wallet_id for uw in user_wallets]
 
+    exin_item_ids = None
+    if exin_item_id:
+        exin_item_ids = [exin_item_id]
+    # else:
+    #     # get available exin_items for the user
+    #     user_exinitems = await UserExInItemORM.get_list(db, user_id=user.id)
+    #     exin_item_ids = [item.exin_item_id for item in user_exinitems]
+
     # get transactions list for user's wallets
     params = dict(
         doc_id=doc_id,
         id=id,
         wallet_id=wallet_ids,
-        exin_item_id=exin_item_id,
+        exin_item_id=exin_item_ids,
         comment=comment
     )
     if wallet_id:
