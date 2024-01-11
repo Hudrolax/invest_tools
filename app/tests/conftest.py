@@ -243,3 +243,5 @@ async def symbols(db_session: AsyncSession):
     await SymbolORM.create(db_session, name='BTCRUB', broker_id=broker.id, rate=Decimal('3875000'))
     await SymbolORM.create(db_session, name='USDTRUB', broker_id=broker.id, rate=Decimal('94.82'))
     await SymbolORM.create(db_session, name='USDTARS', broker_id=broker.id, rate=Decimal('980.25'))
+    await SymbolORM.create(db_session, name='ETHBTC', broker_id=broker.id, rate=Decimal('0.05'))
+    await SymbolORM.create(db_session, name='ETHUSDT', broker_id=broker.id, rate=Decimal('2500'))

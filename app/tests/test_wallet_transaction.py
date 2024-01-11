@@ -58,6 +58,7 @@ async def test_create_wallet_transaction_regular(
     assert result['amountARS'] == payload['amount']
     assert result['amountUSD'] == '-12.59'
     assert result['amountBTC'] == '-0.00030454'
+    assert result['amountETH'] == '-0.00609088'
     assert result['amountRUB'] == '-1194.14'
     assert result['comment'] == payload['comment']
     assert result['doc_id']
@@ -307,6 +308,7 @@ async def test_get_wallet_transaction_list(
     client: AsyncClient,
     db_session: AsyncSession,
     jwt_token: tuple[str, UserORM],
+    symbols
 ):
     token, user = jwt_token
     exin_item = await ExInItemORM.create(db_session, user_id=user.id, name='Продукты')

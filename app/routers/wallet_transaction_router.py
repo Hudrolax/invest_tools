@@ -12,7 +12,6 @@ from routers import check_token
 from models.user import UserORM
 from models.wallet_transaction import WalletTransactionORM
 from models.user_wallets import UserWalletsORM
-from models.user_exin_items import UserExInItemORM
 
 
 class TransactionInstanceBase(BaseModel):
@@ -22,11 +21,12 @@ class TransactionInstanceBase(BaseModel):
     amountARS: str | None = None
     amountUSD: str | None = None
     amountBTC: str | None = None
+    amountETH: str | None = None
     amountRUB: str | None = None
     comment: str | None = None
     date: datetime | None = None
 
-    @validator('amount', 'amountARS', 'amountUSD', 'amountBTC', 'amountRUB', pre=True)
+    @validator('amount', 'amountARS', 'amountUSD', 'amountBTC', 'amountETH', 'amountRUB', pre=True)
     def format_decimal_fields(cls, value):
         if value is not None:
             return format_decimal(value)

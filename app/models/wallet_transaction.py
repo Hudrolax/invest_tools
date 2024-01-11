@@ -16,6 +16,8 @@ from models.currency import CurrencyORM
 
 async def get_symbol_rate(db: AsyncSession, symbol_name: str, broker_name:str) -> Decimal:
     symbols = await SymbolORM.get_list(db, symbol_names=[symbol_name], broker_name=broker_name)
+    symbols2 = await SymbolORM.get_list(db)
+    print([symbol.name for symbol in symbols2])
     rate = symbols[0].rate
     return rate if isinstance(rate, Decimal) else Decimal(1)
 
@@ -26,10 +28,11 @@ class WalletTransactionORM(Base):
     wallet_id = Column(Integer, ForeignKey('wallets.id', ondelete='CASCADE'), nullable=False, index=True)
     exin_item_id = Column(Integer, ForeignKey('exin_items.id', ondelete='CASCADE'), index=True)
     amount = Column(DECIMAL(precision=20, scale=8), nullable=False)
-    amountBTC = Column(DECIMAL(precision=20, scale=8), nullable=False)
-    amountUSD = Column(DECIMAL(precision=20, scale=2), nullable=False)
-    amountRUB = Column(DECIMAL(precision=20, scale=2), nullable=False)
-    amountARS = Column(DECIMAL(precision=20, scale=2), nullable=False)
+    amountBTC = Column(DECIMAL(precision=20, scale=8), nullable=False, default=0)
+    amountETH = Column(DECIMAL(precision=20, scale=8), nullable=False, default=0)
+    amountUSD = Column(DECIMAL(precision=20, scale=2), nullable=False, default=0)
+    amountRUB = Column(DECIMAL(precision=20, scale=2), nullable=False, default=0)
+    amountARS = Column(DECIMAL(precision=20, scale=2), nullable=False, default=0)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     date = Column(DateTime(timezone=True), nullable=False) 
     doc_id = Column(String, nullable=False, index=True)
@@ -65,34 +68,53 @@ class WalletTransactionORM(Base):
                 BTCUSDT_rate = await get_symbol_rate(db, 'BTCUSDT', 'Binance-spot')
                 BTCRUB_rate = await get_symbol_rate(db, 'BTCRUB', 'Binance-spot')
                 BTCARS_rate = await get_symbol_rate(db, 'BTCARS', 'Binance-spot')
+                ETHBTC_rate = await get_symbol_rate(db, 'ETHBTC', 'Binance-spot')
                 transaction.amountBTC = Decimal(transaction.amount) # type: ignore
                 transaction.amountUSD = Decimal(transaction.amount) * BTCUSDT_rate # type: ignore
                 transaction.amountRUB = Decimal(transaction.amount) * BTCRUB_rate # type: ignore
                 transaction.amountARS = Decimal(transaction.amount) * BTCARS_rate # type: ignore
+                transaction.amountETH = Decimal(transaction.amount) / ETHBTC_rate # type: ignore
+            if wc_name == 'ETH': # type: ignore
+                BTCUSDT_rate = await get_symbol_rate(db, 'BTCUSDT', 'Binance-spot')
+                BTCRUB_rate = await get_symbol_rate(db, 'BTCRUB', 'Binance-spot')
+                BTCARS_rate = await get_symbol_rate(db, 'BTCARS', 'Binance-spot')
+                ETHBTC_rate = await get_symbol_rate(db, 'ETHBTC', 'Binance-spot')
+                ETHUSDT_rate = await get_symbol_rate(db, 'ETHUSDT', 'Binance-spot')
+                transaction.amountBTC = Decimal(transaction.amount) * ETHBTC_rate # type: ignore
+                transaction.amountUSD = Decimal(transaction.amount) * ETHUSDT_rate # type: ignore
+                transaction.amountRUB = Decimal(transaction.amount) * ETHBTC_rate * BTCRUB_rate # type: ignore
+                transaction.amountARS = Decimal(transaction.amount) * ETHBTC_rate * BTCARS_rate # type: ignore
+                transaction.amountETH = Decimal(transaction.amount) # type: ignore
             elif wc_name == 'USD': # type: ignore
                 BTCUSDT_rate = await get_symbol_rate(db, 'BTCUSDT', 'Binance-spot')
                 USDTRUB_rate = await get_symbol_rate(db, 'USDTRUB', 'Binance-spot')
                 USDTARS_rate = await get_symbol_rate(db, 'USDTARS', 'Binance-spot')
+                ETHUSDT_rate = await get_symbol_rate(db, 'ETHUSDT', 'Binance-spot')
                 transaction.amountBTC = Decimal(transaction.amount) / BTCUSDT_rate # type: ignore
                 transaction.amountUSD = Decimal(transaction.amount) # type: ignore
                 transaction.amountRUB = Decimal(transaction.amount) * USDTRUB_rate # type: ignore
                 transaction.amountARS = Decimal(transaction.amount) * USDTARS_rate # type: ignore
+                transaction.amountETH = Decimal(transaction.amount) / ETHUSDT_rate # type: ignore
             elif wc_name == 'ARS': # type: ignore
                 USDTRUB_rate = await get_symbol_rate(db, 'USDTRUB', 'Binance-spot')
                 USDTARS_rate = await get_symbol_rate(db, 'USDTARS', 'Binance-spot')
                 BTCARS_rate = await get_symbol_rate(db, 'BTCARS', 'Binance-spot')
+                ETHBTC_rate = await get_symbol_rate(db, 'ETHBTC', 'Binance-spot')
                 transaction.amountBTC = Decimal(transaction.amount) / BTCARS_rate # type: ignore
                 transaction.amountUSD = Decimal(transaction.amount) / USDTARS_rate # type: ignore
                 transaction.amountRUB = Decimal(transaction.amount) / USDTARS_rate * USDTRUB_rate # type: ignore
                 transaction.amountARS = Decimal(transaction.amount) # type: ignore
+                transaction.amountETH = Decimal(transaction.amount) / BTCARS_rate / ETHBTC_rate # type: ignore
             elif wc_name == 'RUB': # type: ignore
                 USDTRUB_rate = await get_symbol_rate(db, 'USDTRUB', 'Binance-spot')
                 USDTARS_rate = await get_symbol_rate(db, 'USDTARS', 'Binance-spot')
                 BTCRUB_rate = await get_symbol_rate(db, 'BTCRUB', 'Binance-spot')
+                ETHBTC_rate = await get_symbol_rate(db, 'ETHBTC', 'Binance-spot')
                 transaction.amountBTC = Decimal(transaction.amount) / BTCRUB_rate # type: ignore
                 transaction.amountUSD = Decimal(transaction.amount) / USDTRUB_rate # type: ignore
                 transaction.amountRUB = Decimal(transaction.amount) # type: ignore
                 transaction.amountARS = Decimal(transaction.amount) / USDTRUB_rate * USDTARS_rate # type: ignore
+                transaction.amountBTC = Decimal(transaction.amount) / BTCRUB_rate / ETHBTC_rate # type: ignore
 
             db.add(transaction)
             await db.flush()
