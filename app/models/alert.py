@@ -35,6 +35,9 @@ class AlertORM(Base):
 
     def __str__(self):
         return f'alert {self.symbol} {self.trigger} {self.price}'
+    
+    async def delete_self(self, db: AsyncSession) -> bool:
+        return await AlertORM.delete(db, self.id) # type: ignore
 
     @classmethod
     async def validate(cls, alert: 'AlertORM.instance', db: AsyncSession) -> None:

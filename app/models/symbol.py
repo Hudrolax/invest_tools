@@ -24,6 +24,9 @@ class SymbolORM(Base):
 
     def __str__(self) -> str:
         return f'{self.name}'
+    
+    async def delete_self(self, db: AsyncSession) -> bool:
+        return await SymbolORM.delete(db, self.id) # type: ignore
 
     @classmethod
     async def create(cls, db: AsyncSession, **kwargs) -> Self:

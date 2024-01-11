@@ -4,8 +4,6 @@ import core.config
 from fastapi import FastAPI
 from uvicorn.config import Config
 from uvicorn.server import Server
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import RedirectResponse
 
 from core.db import sessionmanager
 from routers.user_router import router as user_router
@@ -17,8 +15,10 @@ from routers.currency_router import router as currency_router
 from routers.wallet_router import router as wallet_router
 from routers.wallet_transaction_router import router as wallet_transaction_router
 
-from tasks import task_run_market_streams
-from tasks import task_update_market_data
+from tasks import (
+    task_run_market_streams,
+    task_update_market_data,
+)
 
 
 @asynccontextmanager
@@ -32,13 +32,6 @@ app = FastAPI(
     lifespan=lifespan, # type: ignore
     openapi_prefix="/api/v1",
 )
-
-# @app.middleware("http")
-# async def redirect_docs(request, call_next):
-#     if request.url.path == "/docs":
-#         return RedirectResponse(url='/api/v1/docs')
-#     return await call_next(request)
-
 
 app.include_router(user_router)
 app.include_router(symbol_router)
