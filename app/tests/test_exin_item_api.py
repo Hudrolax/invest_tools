@@ -75,6 +75,14 @@ async def test_read_exin_items(client: AsyncClient, db_session: AsyncSession, jw
     assert result[0]['name'] == exin_item1.name
     assert result[1]['name'] == exin_item2.name
 
+    response = await client.get(f"/exin_items/", headers=headers, params=dict(ids=[exin_item1.id, exin_item2.id])) # type: ignore
+    assert response.status_code == 200
+    result = response.json()
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0]['name'] == exin_item1.name
+    assert result[1]['name'] == exin_item2.name
+
 
 @pytest.mark.asyncio
 async def test_update_exin_item(client: AsyncClient, db_session: AsyncSession, jwt_token: tuple[str, UserORM]):

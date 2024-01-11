@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, IntegrityError
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from core.db import get_db
 from routers import check_token
@@ -72,9 +72,12 @@ async def put_exin_item(
 async def get_exin_items(
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
+    ids: list[int] | None = Query(None)
 ):
-    users_exin_items = await UserExInItemORM.get_list(db, user_id=user.id)
+    if ids:
+        return await ExInItemORM.get_list(db, id=ids)
 
+    users_exin_items = await UserExInItemORM.get_list(db, user_id=user.id)
     return await ExInItemORM.get_list(db, id=[item.exin_item_id for item in users_exin_items])
 
 
