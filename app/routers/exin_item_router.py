@@ -74,11 +74,15 @@ async def get_exin_items(
     user: UserORM = Depends(check_token),
     ids: list[int] | None = Query(None)
 ):
-    if ids:
-        return await ExInItemORM.get_list(db, id=ids)
+    user_exin_items = await UserExInItemORM.get_list(db, user_id=user.id)
+    ids_list = [item.exin_item_id for item in user_exin_items]
 
-    users_exin_items = await UserExInItemORM.get_list(db, user_id=user.id)
-    return await ExInItemORM.get_list(db, id=[item.exin_item_id for item in users_exin_items])
+    if ids:
+        for id in ids:
+            if id not in ids_list:
+                ids_list.append(id) # type: ignore
+
+    return await ExInItemORM.get_list(db, id=ids_list)
 
 
 @router.get("/{exin_item_id}", response_model=ExInItem)
