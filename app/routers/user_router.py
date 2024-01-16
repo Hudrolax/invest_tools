@@ -15,6 +15,8 @@ class UserBase(BaseModel):
     telegram_id: int | None = None
     email: str | None = None
     name: str | None = None
+    family_group: str | None = None
+    family_leader: int | None = None
 
 
 class UserLogin(BaseModel):
@@ -112,9 +114,16 @@ async def put_user(
 
 @router.get("/", response_model=list[User])
 async def get_users(
+    family_group: str | None = None,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ):
+    if family_group:
+        if user.family_group == family_group: # type: ignore
+            return await UserORM.get_by_family_group(db, family_group)
+        else:
+            raise HTTPException(401, "It's not your family group")
+
     if not user.superuser: # type: ignore
         raise HTTPException(401, 'You are not superuser')
     return await UserORM.get_all(db)

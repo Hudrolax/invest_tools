@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BIGINT, BOOLEAN, String, select, asc
+from sqlalchemy import Column, Integer, BIGINT, BOOLEAN, String, select, asc, ForeignKey
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
@@ -20,6 +20,8 @@ class UserORM(Base):
     telegram_id = Column(BIGINT, index=True)
     email = Column(String, index=True)
     superuser = Column(BOOLEAN, nullable=False, default=False)
+    family_group = Column(String)
+    family_leader = Column(Integer, ForeignKey('users.id'))
 
     alerts = relationship('AlertORM', back_populates='user', cascade="all, delete")
     tokens = relationship('TokenORM', back_populates='user', cascade="all, delete")
@@ -128,6 +130,13 @@ class UserORM(Base):
     async def get_all(cls, db: AsyncSession) -> Sequence[Self]:
         result = await db.execute(select(cls).order_by(asc(cls.id)))  # сортировка по возрастанию id
         return result.scalars().all()
+    
+    @classmethod
+    async def get_by_family_group(cls, db: AsyncSession, family_group: str) -> Sequence[Self]:
+        result = await db.execute(
+            select(cls).where(cls.family_group == family_group).order_by(asc(cls.id))
+        )  # сортировка по возрастанию id, фильтрация по family_group
+        return result.scalars().all()
 
     @classmethod
     async def get_by_token(cls, db: AsyncSession, token: str) -> Self:
@@ -135,7 +144,6 @@ class UserORM(Base):
         if not result:
             raise NoResultFound
         return result
-
     @classmethod
     async def get_by_username(cls, db: AsyncSession, username: str) -> Self:
         result = (await db.scalars(select(cls).where(cls.username == username))).first()
