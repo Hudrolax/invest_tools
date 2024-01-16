@@ -122,7 +122,7 @@ async def get_users(
         if user.family_group == family_group: # type: ignore
             return await UserORM.get_by_family_group(db, family_group)
         else:
-            raise HTTPException(401, "It's not your family group")
+            raise HTTPException(422, "It's not your family group")
 
     if not user.superuser: # type: ignore
         raise HTTPException(401, 'You are not superuser')
