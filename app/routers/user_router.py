@@ -34,6 +34,10 @@ class UserUpdate(UserBase):
     pass
 
 
+class UpdatePassword(BaseModel):
+    password: str
+
+
 class User(UserBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -58,17 +62,17 @@ async def get_tokens(
     user: UserORM = Depends(check_token)
 ) -> list[Token]:
     """Returns list of user tokens"""
-    if user.id != user_id and not user.superuser: # type: ignore
+    if user.id != user_id and not user.superuser:  # type: ignore
         raise HTTPException(401, 'Wrong TOKEN')
 
-    return await TokenORM.get_user_tokens(db, user_id) # type: ignore
+    return await TokenORM.get_user_tokens(db, user_id)  # type: ignore
 
 
 @router.post("/register", response_model=User)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Add a new user"""
     try:
-        user =  await UserORM.create(
+        user = await UserORM.create(
             db=db,
             username=user_data.username,
             password=user_data.password,
@@ -81,17 +85,42 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(422, str(ex))
 
 
+@router.put("/recover/{user_id}", response_model=User)
+async def recover(
+    user_id: int,
+    data: UpdatePassword,
+    db: AsyncSession = Depends(get_db),
+    user: UserORM = Depends(check_token),
+):
+    """recover user password"""
+    try:
+        if user_id != user.id and not user.superuser: # type: ignore
+            raise HTTPException(422, 'Wrong credentials')
+
+
+        user = await UserORM.get(db=db, id=user.id) # type: ignore
+        if user:
+            await user.update_password(db, data.password)
+        else:
+            raise HTTPException(404, f'User with id {user.id} not found.') # type: ignore
+        return user
+    except ValueError as ex:
+        raise HTTPException(422, str(ex))
+
+
 @router.post("/login")
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
     try:
         user = await UserORM.get_by_username(db, user_data.username)
         if user.verify_password(user_data.password):
-            token = create_access_token(user_data.model_dump(exclude_unset=True))
+            token = create_access_token(
+                user_data.model_dump(exclude_unset=True))
             return dict(user_id=user.id, token=token)
         else:
             raise HTTPException(401, 'Wrong password')
     except NoResultFound:
-        raise HTTPException(404, f'User with username {user_data.username} not found.')
+        raise HTTPException(404, f'User with username {
+                            user_data.username} not found.')
 
 
 @router.put("/{user_id}", response_model=User)
@@ -101,7 +130,7 @@ async def put_user(
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    if user.id != user_id: # type: ignore
+    if user.id != user_id:  # type: ignore
         raise HTTPException(401, 'Wrong TOKEN')
 
     try:
@@ -119,12 +148,12 @@ async def get_users(
     db: AsyncSession = Depends(get_db),
 ):
     if family_group:
-        if user.family_group == family_group: # type: ignore
+        if user.family_group == family_group:  # type: ignore
             return await UserORM.get_by_family_group(db, family_group)
         else:
             raise HTTPException(422, "It's not your family group")
 
-    if not user.superuser: # type: ignore
+    if not user.superuser:  # type: ignore
         raise HTTPException(401, 'You are not superuser')
     return await UserORM.get_all(db)
 
@@ -135,7 +164,7 @@ async def get_user(
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    if user.id != user_id: # type: ignore
+    if user.id != user_id:  # type: ignore
         raise HTTPException(401, 'Wrong TOKEN')
 
     try:
@@ -163,9 +192,9 @@ async def del_user(
     db: AsyncSession = Depends(get_db),
 ) -> bool:
     try:
-        if user.id != user_id and not user.superuser: # type: ignore
+        if user.id != user_id and not user.superuser:  # type: ignore
             raise HTTPException(401, 'Wrong TOKEN')
-        
+
         return await UserORM.delete(db, id=user_id)
     except NoResultFound:
         raise HTTPException(404, f'User with id {user_id} not found.')

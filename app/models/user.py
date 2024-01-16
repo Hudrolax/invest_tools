@@ -38,6 +38,12 @@ class UserORM(Base):
     def set_password(self, password: str) -> None:
         self.hashed_password = pwd_context.hash(password)
     
+    async def update_password(self, db, password: str) -> bool:
+        self.hashed_password = pwd_context.hash(password)
+        await db.flush()
+        return True
+
+    
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in self.__dict__.items() if not key.startswith('_')}
 
