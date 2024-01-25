@@ -14,10 +14,12 @@ from routers.exin_item_router import router as exin_item_router
 from routers.currency_router import router as currency_router
 from routers.wallet_router import router as wallet_router
 from routers.wallet_transaction_router import router as wallet_transaction_router
+from routers.checklist_router import router as checklist_router
 
 from tasks import (
     task_run_market_streams,
     task_update_market_data,
+    task_remove_old_checklist_items,
 )
 
 
@@ -41,6 +43,7 @@ app.include_router(exin_item_router)
 app.include_router(currency_router)
 app.include_router(wallet_router)
 app.include_router(wallet_transaction_router)
+app.include_router(checklist_router)
 
 stop_event = asyncio.Event()
 
@@ -56,6 +59,7 @@ async def main() -> None:
         run_fastapi(),
         task_run_market_streams(stop_event, sessionmanager),
         task_update_market_data(stop_event),
+        task_remove_old_checklist_items(stop_event, sessionmanager),
     )
 
 if __name__ == "__main__":

@@ -52,7 +52,7 @@ def downgrade() -> None:
     op.alter_column('wallet_transactions', 'amountBTC',
                existing_type=sa.NUMERIC(precision=20, scale=8),
                nullable=False)
-    op.drop_constraint(None, 'users', type_='foreignkey')
+    op.drop_constraint(None, 'users', type_='foreignkey') # type: ignore
     op.drop_column('users', 'family_leader')
     op.drop_column('users', 'family_group')
     # ### end Alembic commands ###

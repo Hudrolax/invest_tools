@@ -9,3 +9,4 @@ from .wallet import *
 from .wallet_transaction import *
 from .user_wallets import *
 from .user_exin_items import *
+from .checklist import *

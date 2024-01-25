@@ -28,6 +28,7 @@ class UserORM(Base):
     wallet_transactions = relationship('WalletTransactionORM', back_populates='user', cascade="all, delete")
     user_wallets = relationship('UserWalletsORM', back_populates='user', cascade="all, delete")
     user_exin_items = relationship('UserExInItemORM', back_populates='user', cascade="all, delete")
+    checklist = relationship('ChecklistORM', back_populates='user', cascade="all, delete")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

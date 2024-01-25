@@ -73,28 +73,6 @@ router = APIRouter(
     responses={404: {"description": "Wallet transaction not found"}},
 )
 
-# async def get_trzs_with_user_name(
-#     db: AsyncSession,
-#     transaction_records: list[WalletTransactionORM],
-# ) -> list[Transaction]:
-#     # Получаем информацию о пользователях для каждой транзакции
-#     transactions_with_users = []
-#     for trz in transaction_records:
-#         query = select(UserORM.name).where(UserORM.id == trz.user_id)
-#         result = await db.execute(query)
-#         user_name = result.scalar_one_or_none()
-#         transactions_with_users.append((trz, user_name))
-
-#     # Преобразование в Pydantic модели
-#     transactions = []
-#     for trz, user_name in transactions_with_users:
-#         trz_data = trz.__dict__.copy()
-#         trz_data['user_name'] = user_name
-#         transactions.append(Transaction(**trz_data))
-
-#     return transactions
-
-
 async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[WalletTransactionORM]:
     transaction_records = []
     try:
