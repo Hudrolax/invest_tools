@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, select, asc, ForeignKey, DECIMAL, and_
+from sqlalchemy import Column, Integer, String, select, asc, ForeignKey, DECIMAL, and_, BOOLEAN
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
@@ -14,6 +14,8 @@ class WalletORM(Base):
     name = Column(String, unique=True, nullable=False)
     currency_id = Column(Integer, ForeignKey('currencies.id', ondelete='CASCADE'), nullable=False)
     balance = Column(DECIMAL(precision=20, scale=8), nullable=False, default=0)
+    color = Column(String, default="#f9a60a")
+    in_balance = Column(BOOLEAN, default=True, nullable=False)
 
     currency = relationship('CurrencyORM', back_populates='wallets')
     wallet_transactions = relationship('WalletTransactionORM', back_populates='wallet', cascade="all, delete")

@@ -17,6 +17,9 @@ class WalletBase(BaseModel):
     name: str | None = None
     currency_id: int | None = None
     balance: Decimal | None = None
+    color: str | None = None
+    in_balance: bool = True
+
 
 class WalletCreate(BaseModel):
     name: str
@@ -33,6 +36,8 @@ class Wallet(BaseModel):
     name: str
     currency_id: int
     balance: str
+    color: str
+    in_balance: bool
 
     @validator('balance', pre=True)
     def format_balance(cls, v):

@@ -30,6 +30,8 @@ async def test_create_wallet(client: AsyncClient, db_session: AsyncSession, jwt_
     assert result['name'] == payload['name']
     assert result['currency_id'] == payload['currency_id']
     assert Decimal(result['balance']) == Decimal(0)
+    assert result['color'] == "#f9a60a"
+    assert result['in_balance'] == True
 
     user_wallets = await UserWalletsORM.get_list(db_session, user_id=user.id)
     assert len(user_wallets) == 1
@@ -54,7 +56,9 @@ async def test_read_wallet(client: AsyncClient, db_session: AsyncSession, jwt_to
     payload = dict(
         name = 'Нал ARS',
         currency_id = currency.id,
-        balance = Decimal('35.99')
+        balance = Decimal('35.99'),
+        color = "#000000",
+        in_balance = False,
     )
     wallet = await WalletORM.create(db_session, user_id=user.id, **payload)
 
@@ -64,6 +68,8 @@ async def test_read_wallet(client: AsyncClient, db_session: AsyncSession, jwt_to
     assert result['name'] == payload['name']
     assert result['currency_id'] == payload['currency_id']
     assert Decimal(result['balance']) == payload['balance']
+    assert result['color'] == '#000000'
+    assert result['in_balance'] == False
 
 
 @pytest.mark.asyncio
