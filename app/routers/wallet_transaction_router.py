@@ -175,7 +175,7 @@ async def get_wallet_transactions(
     comment: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
-    last_n: int = 100
+    last_n: int = 1000
 ) -> list[WalletTransactionORM]:
     if wallet_id:
         wallet_ids = [wallet_id]
