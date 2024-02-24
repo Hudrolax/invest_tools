@@ -1,5 +1,5 @@
 from sqlalchemy import (Column, Integer, String, select, asc, BigInteger,
-    ForeignKey, DECIMAL, DateTime, TEXT, select, and_, true)
+    ForeignKey, DECIMAL, DateTime, TEXT, select, and_)
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship

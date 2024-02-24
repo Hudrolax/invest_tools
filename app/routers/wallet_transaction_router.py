@@ -31,7 +31,7 @@ class TransactionInstanceBase(BaseModel):
         if value is not None:
             return format_decimal(value)
         return value
-    
+
 
 class TransactionBase(BaseModel):
     wallet_from_id: int | None = None
@@ -73,6 +73,7 @@ router = APIRouter(
     responses={404: {"description": "Wallet transaction not found"}},
 )
 
+
 async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[WalletTransactionORM]:
     transaction_records = []
     try:
@@ -85,23 +86,23 @@ async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[WalletTr
             if not data.exchange_rate:
                 raise HTTPException(422, 'exchange_rate should be passed')
             payload = dict(
-                user_id = data.user_id,
-                doc_id = data.doc_id,
-                comment = data.comment,
-                date = data.date,
+                user_id=data.user_id,
+                doc_id=data.doc_id,
+                comment=data.comment,
+                date=data.date,
             )
-            wt_from = await WalletTransactionORM.create(db=db, 
-                wallet_id = data.wallet_from_id,
-                amount = -data.amount,
-                **payload
-            )
-            payload['doc_id'] = wt_from.doc_id # type: ignore
-            payload['date'] = wt_from.date # type: ignore
-            wt_to = await WalletTransactionORM.create(db=db, 
-                wallet_id = data.wallet_to_id,
-                amount = data.amount * data.exchange_rate,
-                **payload
-            )
+            wt_from = await WalletTransactionORM.create(db=db,
+                                                        wallet_id=data.wallet_from_id,
+                                                        amount=-data.amount,
+                                                        **payload
+                                                        )
+            payload['doc_id'] = wt_from.doc_id  # type: ignore
+            payload['date'] = wt_from.date  # type: ignore
+            wt_to = await WalletTransactionORM.create(db=db,
+                                                      wallet_id=data.wallet_to_id,
+                                                      amount=data.amount * data.exchange_rate,
+                                                      **payload
+                                                      )
 
             transaction_records = [wt_from, wt_to]
         else:
@@ -112,18 +113,18 @@ async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[WalletTr
                 raise HTTPException(422, 'exin_item_it should be passed')
 
             payload = dict(
-                user_id = data.user_id,
-                doc_id = data.doc_id,
-                date = data.date,
-                wallet_id = data.wallet_from_id,
-                exin_item_id = data.exin_item_id,
-                amount = data.amount,
-                comment = data.comment,
+                user_id=data.user_id,
+                doc_id=data.doc_id,
+                date=data.date,
+                wallet_id=data.wallet_from_id,
+                exin_item_id=data.exin_item_id,
+                amount=data.amount,
+                comment=data.comment,
             )
             wt = await WalletTransactionORM.create(db=db, **payload)
 
             transaction_records = [wt]
-        
+
         return transaction_records
     except IntegrityError as ex:
         raise HTTPException(422, str(ex))
@@ -153,11 +154,12 @@ async def put_wallet_transaction(
 
         for trz in trz_list:
             await trz.delete_self(db)
-        
-        data_create = TransactionCreate(doc_id=doc_id, user_id=user.id, **data.model_dump(exclude_unset=True)) # type: ignore
+
+        data_create = TransactionCreate(
+            doc_id=doc_id, user_id=user.id, **data.model_dump(exclude_unset=True)) # type: ignore
 
         return await create_trz(db, data_create)
-        
+
     except NoResultFound as ex:
         raise HTTPException(404, str(ex))
     except (IntegrityError, ValueError) as ex:
@@ -199,13 +201,16 @@ async def get_wallet_transactions(
         comment=comment
     )
     if wallet_id:
-        params['user_id'] = user.id # type: ignore
+        params['user_id'] = user.id  # type: ignore
 
-    transaction_records = await WalletTransactionORM.get_list(db, 
-        **params
-    )
+    transaction_records = await WalletTransactionORM.get_list(db,
+                                                              **params
+                                                              )
     # get last N records
-    transaction_records = transaction_records[-last_n:]
+    transaction_records = transaction_records[-last_n+1:]
+    if len(transaction_records) > last_n:
+        if transaction_records[0].doc_id != transaction_records[1].doc_id:  # type: ignore
+            transaction_records = transaction_records[-last_n:]
     return transaction_records
 
 
@@ -234,5 +239,5 @@ async def del_wallet_transaction(
 
     for trz in trz_list:
         await trz.delete_self(db)
-    
+
     return True
