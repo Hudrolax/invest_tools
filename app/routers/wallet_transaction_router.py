@@ -207,7 +207,7 @@ async def get_wallet_transactions(
                                                               **params
                                                               )
     # get last N records
-    transaction_records = transaction_records[-last_n+1:]
+    transaction_records = transaction_records[-last_n - 1:]
     if len(transaction_records) > last_n:
         if transaction_records[0].doc_id != transaction_records[1].doc_id:  # type: ignore
             transaction_records = transaction_records[-last_n:]
