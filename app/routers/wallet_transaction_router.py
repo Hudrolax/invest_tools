@@ -60,7 +60,7 @@ class TransactionCreate(TransactionBase):
 
 class Transaction(TransactionInstanceBase):
     model_config = ConfigDict(from_attributes=True)
-    wallet_id: int
+    wallet_id: int # type: ignore
     user_id: int
     # user_name: str
     id: int
