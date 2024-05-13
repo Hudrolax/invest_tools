@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, select, asc, ForeignKey, DECIMAL, and_, BOOLEAN
+from sqlalchemy import Column, Integer, String, select, asc, ForeignKey, DECIMAL, and_, BOOLEAN, inspect
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
@@ -23,6 +23,13 @@ class WalletORM(Base):
 
     def __str__(self) -> str:
         return f'{self.name}'
+    
+    def dict(self):
+        """Преобразует экземпляр SQLAlchemy модели в словарь, исключая служебные поля."""
+        cls_ = type(self)
+        mapper = inspect(cls_)
+        # Получаем только те атрибуты, которые связаны с колонками таблицы
+        return {column.key: getattr(self, column.key) for column in mapper.attrs}
 
     @classmethod
     async def create(cls, db: AsyncSession, **kwargs) -> Self:

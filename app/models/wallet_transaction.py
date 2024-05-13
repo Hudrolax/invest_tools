@@ -61,7 +61,9 @@ class WalletTransactionORM(Base):
             # change wallet balance
             wallet = await WalletORM.get(db, transaction.wallet_id) # type: ignore
             wallet.balance += Decimal(transaction.amount) # type: ignore
-            wallet_currency = await CurrencyORM.get(db, wallet.currency_id) # type: ignore
+            wallet_currency = await CurrencyORM.get(db, id=wallet.currency_id) # type: ignore
+            if wallet_currency is None:
+                raise Exception("Wallet currency is None!")
             wc_name = wallet_currency.name
 
             if wc_name == 'BTC': # type: ignore

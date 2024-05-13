@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan, # type: ignore
-    openapi_prefix="/api/v1",
+    openapi_prefix="/api/v2",
 )
 
 app.include_router(user_router)

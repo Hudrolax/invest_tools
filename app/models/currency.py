@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, select, asc
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
-from typing import Self
+from typing import Self, Union
 
 from core.db import Base
 from brokers.binance import binance_symbols
@@ -77,11 +77,14 @@ class CurrencyORM(Base):
             raise
 
     @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
+    async def get(cls, db: AsyncSession, **kwargs) -> Union[Self, None]:
+        result = await db.execute(select(cls).filter_by(**kwargs))
+        existing = result.scalars().first()
+        
+        if existing:
+            return existing
+        else:
+            return None
 
     @classmethod
     async def get_all(cls, db: AsyncSession) -> list[Self]:

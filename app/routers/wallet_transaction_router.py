@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, IntegrityError
-from sqlalchemy.future import select
+from sqlalchemy import select, func, case, desc
 from fastapi import APIRouter, Depends, HTTPException
 from decimal import Decimal
 from datetime import datetime
@@ -11,6 +11,9 @@ from core.db import get_db
 from routers import check_token
 from models.user import UserORM
 from models.wallet_transaction import WalletTransactionORM
+from models.wallet import WalletORM
+from models.exin_item import ExInItemORM
+from models.currency import CurrencyORM
 from models.user_wallets import UserWalletsORM
 
 
@@ -130,22 +133,25 @@ async def create_trz(db: AsyncSession, data: TransactionCreate) -> list[WalletTr
         raise HTTPException(422, str(ex))
 
 
-@router.post("/", response_model=list[Transaction])
+@router.post("/")
 async def post_wallet_transaction(
     data: TransactionBase,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
-) -> list[Transaction]:
-    return await create_trz(db, TransactionCreate(user_id=user.id, **data.model_dump(exclude_unset=True))) # type: ignore
+) -> bool:
+    # add transaction
+    await create_trz(db, TransactionCreate(user_id=user.id, **data.model_dump(exclude_unset=True))) # type: ignore
+
+    return True
 
 
-@router.put("/{doc_id}", response_model=list[Transaction])
+@router.put("/{doc_id}", response_model=bool)
 async def put_wallet_transaction(
     doc_id: str,
     data: TransactionUpdate,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
-) -> list[WalletTransactionORM]:
+) -> bool:
     try:
         # get transactions by doc_id and mark deleted
         trz_list = await WalletTransactionORM.get_list(db, doc_id=doc_id)
@@ -158,61 +164,13 @@ async def put_wallet_transaction(
         data_create = TransactionCreate(
             doc_id=doc_id, user_id=user.id, **data.model_dump(exclude_unset=True)) # type: ignore
 
-        return await create_trz(db, data_create)
+        await create_trz(db, data_create)
+        return True
 
     except NoResultFound as ex:
         raise HTTPException(404, str(ex))
     except (IntegrityError, ValueError) as ex:
         raise HTTPException(422, str(ex))
-
-
-@router.get("/", response_model=list[Transaction])
-async def get_wallet_transactions(
-    doc_id: str | None = None,
-    id: int | None = None,
-    wallet_id: int | None = None,
-    exin_item_id: int | None = None,
-    comment: str | None = None,
-    db: AsyncSession = Depends(get_db),
-    user: UserORM = Depends(check_token),
-    last_n: int = 1000
-) -> list[WalletTransactionORM]:
-    if wallet_id:
-        wallet_ids = [wallet_id]
-    else:
-        # get available wallets for the user
-        user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
-        wallet_ids = [uw.wallet_id for uw in user_wallets]
-
-    exin_item_ids = None
-    if exin_item_id:
-        exin_item_ids = [exin_item_id]
-    # else:
-    #     # get available exin_items for the user
-    #     user_exinitems = await UserExInItemORM.get_list(db, user_id=user.id)
-    #     exin_item_ids = [item.exin_item_id for item in user_exinitems]
-
-    # get transactions list for user's wallets
-    params = dict(
-        doc_id=doc_id,
-        id=id,
-        wallet_id=wallet_ids,
-        exin_item_id=exin_item_ids,
-        comment=comment
-    )
-    if wallet_id:
-        params['user_id'] = user.id  # type: ignore
-
-    transaction_records = await WalletTransactionORM.get_list(db,
-                                                              **params
-                                                              )
-    # get last N records
-    transaction_records = transaction_records[-last_n - 1:]
-    if len(transaction_records) > last_n:
-        if transaction_records[0].doc_id != transaction_records[1].doc_id:  # type: ignore
-            transaction_records = transaction_records[-last_n:]
-    return transaction_records
-
 
 @router.get("/{doc_id}", response_model=list[Transaction])
 async def get_wallet_transaction(
@@ -241,3 +199,133 @@ async def del_wallet_transaction(
         await trz.delete_self(db)
 
     return True
+
+
+@router.get("/")
+async def get_wallet_transactions(
+    currency_name: str,
+    db: AsyncSession = Depends(get_db),
+    user: UserORM = Depends(check_token)
+):
+    from_condition = (((WalletTransactionORM.exin_item_id == None) &
+                (WalletTransactionORM.amount < 0)) | 
+            (WalletTransactionORM.exin_item_id != None))
+    to_condition = ((WalletTransactionORM.exin_item_id == None) &
+                (WalletTransactionORM.amount >= 0))
+
+    amount = getattr(WalletTransactionORM,f'amount{currency_name}')
+    wallet_from_case = case((from_condition, WalletTransactionORM.wallet_id))
+    wallet_to_case = case((to_condition, WalletTransactionORM.wallet_id))
+    amount_from_case = case(
+        (from_condition, case((
+            WalletTransactionORM.exin_item_id == None, WalletTransactionORM.amount
+        ), else_= amount)
+        )
+    )
+    amount_to_case = case((to_condition, WalletTransactionORM.amount))
+    query_trz = (
+        select(
+            WalletTransactionORM.doc_id,
+            func.max(WalletTransactionORM.user_id).label("user_id"),
+            func.max(WalletTransactionORM.date).label("datetime"),
+            func.max(func.date(WalletTransactionORM.date)).label("date"),
+            func.max(WalletTransactionORM.exin_item_id).label("exin_item_id"),
+            func.max(wallet_from_case).label('wallet_from_id'),
+            func.max(wallet_to_case).label('wallet_to_id'),
+            func.sum(amount_from_case).label('amount_from'),
+            func.sum(amount_to_case).label('amount_to'),
+            func.max(WalletTransactionORM.comment).label("comment"),
+        )
+        .select_from(WalletTransactionORM)
+        .join(UserWalletsORM, (UserWalletsORM.user_id == user.id) & (UserWalletsORM.wallet_id == WalletTransactionORM.wallet_id))
+        .group_by(WalletTransactionORM.doc_id)
+    ).alias()
+
+    # Создаем псевдонимы для таблиц
+    wallet_from = WalletORM.__table__.alias("wallet_from")
+    wallet_from_currency = CurrencyORM.__table__.alias("wallet_from_currency")
+    wallet_to = WalletORM.__table__.alias("wallet_to")
+    wallet_to_currency = CurrencyORM.__table__.alias("wallet_to_currency")
+
+    query_main = (
+        select(
+            query_trz.c.doc_id,
+            query_trz.c.date,
+            query_trz.c.datetime,
+            UserORM.id.label("user_id"),
+            UserORM.name.label("user_name"),
+            ExInItemORM.id.label("exin_item_id"),
+            ExInItemORM.name.label("exin_item_name"),
+            ExInItemORM.income.label("exin_item_income"),
+            query_trz.c.wallet_from_id,
+            wallet_from.c.name.label("wallet_from_name"),
+            wallet_from.c.balance.label("wallet_from_balance"),
+            wallet_from_currency.c.id.label("wallet_from_currency_id"),
+            wallet_from_currency.c.name.label("wallet_from_currency_name"),
+            query_trz.c.wallet_to_id,
+            wallet_to.c.name.label("wallet_to_name"),
+            wallet_to.c.balance.label("wallet_to_balance"),
+            wallet_to_currency.c.id.label("wallet_to_currency_id"),
+            wallet_to_currency.c.name.label("wallet_to_currency_name"),
+            query_trz.c.amount_from,
+            query_trz.c.amount_to,
+            query_trz.c.comment,
+        )
+        .select_from(query_trz)
+        .join(UserORM, UserORM.id == query_trz.c.user_id)
+        .outerjoin(ExInItemORM, ExInItemORM.id == query_trz.c.exin_item_id)
+        .join(wallet_from, wallet_from.c.id == query_trz.c.wallet_from_id)
+        .join(wallet_from_currency, wallet_from_currency.c.id == wallet_from.c.currency_id)
+        .outerjoin(wallet_to, wallet_to.c.id == query_trz.c.wallet_to_id)
+        .outerjoin(wallet_to_currency, wallet_to_currency.c.id == wallet_to.c.currency_id)
+        .order_by(desc(query_trz.c.datetime))
+    ).alias()
+
+    query = (
+        select(
+            query_main.c.date,
+            func.sum(query_main.c.amount_from).label("day_amount"),
+            func.array_agg(
+                func.json_build_object(
+                    'doc_id', query_main.c.doc_id,
+                    'datetime', query_main.c.datetime,
+                    'date', query_main.c.date,
+                    'user', func.json_build_object(
+                        'id', query_main.c.user_id,
+                        'name', query_main.c.user_name,
+                    ),
+                    'exin_item', func.json_build_object(
+                        'id', query_main.c.exin_item_id,
+                        'name', query_main.c.exin_item_name,
+                        'income', query_main.c.exin_item_income,
+                    ),
+                    'wallet_from', func.json_build_object(
+                        'id', query_main.c.wallet_from_id,
+                        'name', query_main.c.wallet_from_name,
+                        'balance', query_main.c.wallet_from_balance,
+                        'currency', func.json_build_object(
+                            'id', query_main.c.wallet_from_currency_id,
+                            'name', query_main.c.wallet_from_currency_name,
+                        ),
+                    ), 
+                    'wallet_to', func.json_build_object(
+                        'id', query_main.c.wallet_to_id,
+                        'name', query_main.c.wallet_to_name,
+                        'balance', query_main.c.wallet_to_balance,
+                        'currency', func.json_build_object(
+                            'id', query_main.c.wallet_to_currency_id,
+                            'name', query_main.c.wallet_to_currency_name,
+                        ),
+                    ),
+                    'amount_from', query_main.c.amount_from,
+                    'amount_to', query_main.c.amount_to,
+                    'comment', query_main.c.comment,
+                )
+            ).label("day_transactions")
+        )
+        .group_by(query_main.c.date)
+        .order_by(desc(query_main.c.date))
+    )
+    result = (await db.execute(query)).mappings().all()
+    return result
+    

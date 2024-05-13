@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, validator
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from fastapi import APIRouter, Depends, HTTPException
 from decimal import Decimal
@@ -71,9 +72,7 @@ async def put_wallet(
     db: AsyncSession = Depends(get_db),
 ) -> Wallet:
     try:
-        user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
-        if not user_wallets:
-            raise HTTPException(404, "Wallet not found")
+        await UserWalletsORM.get(db, user_id=user.id, wallet_id=wallet_id)
 
         return await WalletORM.update(db=db, id=wallet_id, **data.model_dump(exclude_unset=True))
     except NoResultFound:
@@ -86,10 +85,15 @@ async def put_wallet(
 async def get_wallets(
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
-):
-    user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
-
-    return await WalletORM.get_list(db, id=[item.wallet_id for item in user_wallets])
+) -> list[Wallet]:
+    query = (
+        select(*WalletORM.__table__.c)
+        .select_from(WalletORM)
+        .join(UserWalletsORM, (UserWalletsORM.wallet_id == WalletORM.id) & (UserWalletsORM.user_id == user.id))
+        .order_by(WalletORM.id)
+    )
+    result = (await db.execute(query)).mappings().all()
+    return [Wallet(**item) for item in result]
 
 
 @router.get("/{wallet_id}", response_model=Wallet)
@@ -98,15 +102,18 @@ async def get_wallet(
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> Wallet:
-    try:
-        user_wallets = await UserWalletsORM.get_list(db, user_id=user.id)
-        if not user_wallets:
-            raise HTTPException(404, "Wallet not found")
-
-        return await WalletORM.get(db, id=wallet_id)
-    except NoResultFound:
+    query = (
+        select(*WalletORM.__table__.c)
+        .select_from(WalletORM)
+        .join(UserWalletsORM, (UserWalletsORM.wallet_id == WalletORM.id) & (UserWalletsORM.user_id == user.id))
+        .where(WalletORM.id == wallet_id)
+        .order_by(WalletORM.id)
+    )
+    result = (await db.execute(query)).mappings().first()
+    if not result:
         raise HTTPException(404, f'Wallet with id {wallet_id} not found.')
-
+    
+    return Wallet(**result)
 
 @router.delete("/{wallet_id}", response_model=bool)
 async def del_wallet(

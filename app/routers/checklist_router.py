@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select, func, case, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,13 +18,16 @@ class ChecklistBase(BaseModel):
 class ChecklistCreate(ChecklistBase):
     pass
 
+
 class ChecklistUpdate(BaseModel):
     checked: bool
+
 
 class Checklist(ChecklistBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
+    user: dict
     checked: bool
     date: datetime
 
@@ -42,45 +46,97 @@ async def post_checklist(
     db: AsyncSession = Depends(get_db),
 ) -> Checklist:
     try:
-        return await ChecklistORM.create(db=db, user_id=user.id, **data.model_dump())
+        checklist = await ChecklistORM.create(db=db, user_id=user.id, **data.model_dump())
+        query = (
+            select(
+                *ChecklistORM.__table__.c,
+                func.json_build_object(
+                    'id', UserORM.id.label("user_id"),
+                    'name', UserORM.name.label("user_name"),
+                ).label("user")
+            )
+            .select_from(ChecklistORM)
+            .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == ChecklistORM.user_id))
+            .where(ChecklistORM.id == checklist.id)
+        )
+        result = (await db.execute(query)).mappings().first()
+        if result is None:
+            raise HTTPException(404, f'Checklist item with id {
+                                checklist.id} not found.')
+
+        return Checklist(**result)
     except IntegrityError as ex:
         raise HTTPException(422, str(ex))
 
 
-@router.put("/{checklist_id}", response_model=Checklist)
-async def put_checklist(
+@router.patch("/{checklist_id}", response_model=Checklist)
+async def patch_checklist(
     checklist_id: int,
     data: ChecklistUpdate,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> Checklist:
     try:
-        family_users = await UserORM.get_by_family_group(db, family_group=user.family_group) # type: ignore
-        ids_list = [user.id for user in family_users]
-
-        checklist = await ChecklistORM.get(db, id=checklist_id)
-        if checklist.user_id not in ids_list: # type: ignore
-            raise HTTPException(403, "This cheklist item not from your family group.")
-        checklist.checked = data.checked # type: ignore
+        query = (
+            select(ChecklistORM)
+            .select_from(ChecklistORM)
+            .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == ChecklistORM.user_id))
+            .where(ChecklistORM.id == checklist_id)
+        )
+        checklist = (await db.execute(query)).scalars().first()
+        if checklist is None:  # type: ignore
+            raise HTTPException(
+                403, "This cheklist item not from your family group or not found.")
+        checklist.checked = data.checked  # type: ignore
         await db.flush()
         await db.refresh(checklist)
-        return checklist
-        
+        query = (
+            select(
+                *ChecklistORM.__table__.c,
+                func.json_build_object(
+                    'id', UserORM.id.label("user_id"),
+                    'name', UserORM.name.label("user_name"),
+                ).label("user")
+            )
+            .select_from(ChecklistORM)
+            .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == ChecklistORM.user_id))
+            .where(ChecklistORM.id == checklist_id)
+        )
+        result = (await db.execute(query)).mappings().first()
+        if result is None:
+            raise HTTPException(404, f'Checklist item with id {
+                                checklist_id} not found.')
+
+        return Checklist(**result)
+
     except NoResultFound:
-        raise HTTPException(404, f'Checklist item with id {checklist_id} not found.')
+        raise HTTPException(404, f'Checklist item with id {
+                            checklist_id} not found.')
     except (IntegrityError, ValueError) as ex:
         raise HTTPException(422, str(ex))
 
 
 @router.get("/", response_model=list[Checklist])
 async def get_checklist(
+    archive: bool = False,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
-):
-    family_users = await UserORM.get_by_family_group(db, family_group=user.family_group) # type: ignore
-    ids_list = [user.id for user in family_users]
-    checklist = await ChecklistORM.get_list(db, user_id=ids_list)
-
+) -> list[Checklist]:
+    query = (
+        select(
+            *ChecklistORM.__table__.c,
+            func.json_build_object(
+                'id', UserORM.id.label("user_id"),
+                'name', UserORM.name.label("user_name"),
+            ).label("user")
+        )
+        .select_from(ChecklistORM)
+        .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == ChecklistORM.user_id))
+        .where(ChecklistORM.checked == archive)
+        .order_by(desc(ChecklistORM.date))
+    )
+    result = (await db.execute(query)).mappings().all()
+    checklist = [Checklist(**item) for item in result]
     return checklist
 
 
@@ -91,13 +147,17 @@ async def del_checklist(
     db: AsyncSession = Depends(get_db),
 ) -> bool:
     try:
-        family_users = await UserORM.get_by_family_group(db, family_group=user.family_group) # type: ignore
-        ids_list = [user.id for user in family_users]
+        query = (
+            select(ChecklistORM)
+            .select_from(ChecklistORM)
+            .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == ChecklistORM.user_id))
+            .where(ChecklistORM.id == checklist_id)
+        )
+        checklist = (await db.execute(query)).scalars().first()
+        if checklist is None:  # type: ignore
+            raise HTTPException(
+                403, "This cheklist item not from your family group or not found.")
 
-        checklist = await ChecklistORM.get(db, id=checklist_id)
-        if checklist.user_id not in ids_list: # type: ignore
-            raise HTTPException(403, "This cheklist item not from your family group.")
-
-        return await ChecklistORM.delete(db, checklist.id) # type: ignore
+        return await ChecklistORM.delete(db, checklist.id)  # type: ignore
     except NoResultFound as ex:
         raise HTTPException(404, str(ex))

@@ -18,7 +18,7 @@ server {
     proxy_buffer_size 64k;
   }
 
-  location /api/v1/ {
+  location /api/v2/ {
     proxy_pass http://backend:9000/;
     proxy_http_version 1.1;
     proxy_set_header upgrade "$http_upgrade";

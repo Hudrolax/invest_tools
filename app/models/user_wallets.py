@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, select, asc, ForeignKey, and_, UniqueCon
 from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
-from typing import Self
+from typing import Self, Union
 
 from core.db import Base
 
@@ -68,11 +68,16 @@ class UserWalletsORM(Base):
             raise
 
     @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
+    async def get(cls, db: AsyncSession, raise_exeption: bool = True, **kwargs) -> Union[Self, None]:
+        result = await db.execute(select(cls).filter_by(**kwargs))
+        existing = result.scalars().first()
+        
+        if existing:
+            return existing
+        else:
+            if raise_exeption:
+                raise NoResultFound
+            return None
 
     @classmethod
     async def get_list(cls, db: AsyncSession, **filters) -> list[Self]:
