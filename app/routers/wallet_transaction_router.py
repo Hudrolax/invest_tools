@@ -240,8 +240,6 @@ async def get_wallet_transactions(
         .select_from(WalletTransactionORM)
         .join(UserWalletsORM, (UserWalletsORM.user_id == user.id) & (UserWalletsORM.wallet_id == WalletTransactionORM.wallet_id))
         .group_by(WalletTransactionORM.doc_id)
-        .order_by(desc(WalletTransactionORM.date))
-        .limit(limit)
     ).alias()
 
     # Создаем псевдонимы для таблиц
@@ -328,6 +326,7 @@ async def get_wallet_transactions(
         )
         .group_by(query_main.c.date)
         .order_by(desc(query_main.c.date))
+        .limit(limit)
     )
     result = (await db.execute(query)).mappings().all()
     return result
