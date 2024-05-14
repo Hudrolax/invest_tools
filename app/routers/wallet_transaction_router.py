@@ -238,7 +238,7 @@ async def get_wallet_transactions(
             func.max(WalletTransactionORM.comment).label("comment"),
         )
         .select_from(WalletTransactionORM)
-        .join(UserWalletsORM, (UserWalletsORM.user_id == user.id) & (UserWalletsORM.wallet_id == WalletTransactionORM.wallet_id))
+        .join(UserORM, (UserORM.id == WalletTransactionORM.user_id) & (UserORM.family_group == user.family_group))
         .group_by(WalletTransactionORM.doc_id)
     ).alias()
 
