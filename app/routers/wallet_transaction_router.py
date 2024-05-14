@@ -204,6 +204,7 @@ async def del_wallet_transaction(
 @router.get("/")
 async def get_wallet_transactions(
     currency_name: str,
+    limit: int = 30,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token)
 ):
@@ -239,6 +240,7 @@ async def get_wallet_transactions(
         .select_from(WalletTransactionORM)
         .join(UserWalletsORM, (UserWalletsORM.user_id == user.id) & (UserWalletsORM.wallet_id == WalletTransactionORM.wallet_id))
         .group_by(WalletTransactionORM.doc_id)
+        .limit(limit)
     ).alias()
 
     # Создаем псевдонимы для таблиц
