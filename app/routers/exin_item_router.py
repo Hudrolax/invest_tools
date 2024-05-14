@@ -161,13 +161,14 @@ async def get_exin_items_for_home_screen(
         select(
             ExInItemORM.id,
             ExInItemORM.name,
-            case((amount_query.c.amount == None, 0), else_=amount_query.c.amount).label('amount'),
+            func.max(case((amount_query.c.amount == None, 0), else_=amount_query.c.amount)).label('amount'),
         )
         .select_from(ExInItemORM)
         .join(UserExInItemORM, UserExInItemORM.exin_item_id == ExInItemORM.id)
         .join(UserORM, (UserORM.id == UserExInItemORM.user_id) & (UserORM.family_group == user.family_group))
         .outerjoin(amount_query, amount_query.c.id == ExInItemORM.id)
         .where(ExInItemORM.income == income)
+        .group_by(ExInItemORM.id, ExInItemORM.name)
         .order_by(ExInItemORM.id)
     )
 
