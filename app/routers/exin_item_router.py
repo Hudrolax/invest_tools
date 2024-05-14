@@ -152,6 +152,8 @@ async def get_exin_items_for_home_screen(
         )
         .select_from(WalletTransactionORM)
         .join(ExInItemORM, ExInItemORM.id == WalletTransactionORM.exin_item_id)
+        .join(UserExInItemORM, UserExInItemORM.exin_item_id == ExInItemORM.id)
+        .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == UserExInItemORM.user_id))
         .where((ExInItemORM.income == income) & (WalletTransactionORM.date >= thirty_days_ago))
         .group_by(ExInItemORM.id)
     ).alias()
@@ -163,10 +165,11 @@ async def get_exin_items_for_home_screen(
             case((amount_query.c.amount == None, 0), else_=amount_query.c.amount).label('amount'),
         )
         .select_from(ExInItemORM)
-        .join(UserExInItemORM, (UserExInItemORM.user_id == user.id) & (UserExInItemORM.exin_item_id == ExInItemORM.id))
+        .join(UserORM, UserORM.family_group == user.family_group)
+        .join(UserExInItemORM, (UserExInItemORM.user_id == UserORM.id) & (UserExInItemORM.exin_item_id == ExInItemORM.id))
         .outerjoin(amount_query, amount_query.c.id == ExInItemORM.id)
         .where(ExInItemORM.income == income)
-        .order_by(ExInItemORM.name)
+        .order_by(ExInItemORM.id)
     )
 
     result = (await db.execute(query)).mappings().all()
