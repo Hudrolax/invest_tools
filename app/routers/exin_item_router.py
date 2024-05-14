@@ -148,12 +148,11 @@ async def get_exin_items_for_home_screen(
     amount_query = (
         select(
             func.sum(getattr(WalletTransactionORM,f'amount{currency_name}')).label('amount'),
-            ExInItemORM.id
+            ExInItemORM.id,
         )
         .select_from(WalletTransactionORM)
         .join(ExInItemORM, ExInItemORM.id == WalletTransactionORM.exin_item_id)
-        .join(UserExInItemORM, UserExInItemORM.exin_item_id == ExInItemORM.id)
-        .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == UserExInItemORM.user_id))
+        .join(UserORM, (UserORM.family_group == user.family_group) & (UserORM.id == WalletTransactionORM.user_id))
         .where((ExInItemORM.income == income) & (WalletTransactionORM.date >= thirty_days_ago))
         .group_by(ExInItemORM.id)
     ).alias()
@@ -165,8 +164,8 @@ async def get_exin_items_for_home_screen(
             case((amount_query.c.amount == None, 0), else_=amount_query.c.amount).label('amount'),
         )
         .select_from(ExInItemORM)
-        .join(UserORM, UserORM.family_group == user.family_group)
-        .join(UserExInItemORM, (UserExInItemORM.user_id == UserORM.id) & (UserExInItemORM.exin_item_id == ExInItemORM.id))
+        .join(UserExInItemORM, UserExInItemORM.exin_item_id == ExInItemORM.id)
+        .join(UserORM, (UserORM.id == UserExInItemORM.user_id) & (UserORM.family_group == user.family_group))
         .outerjoin(amount_query, amount_query.c.id == ExInItemORM.id)
         .where(ExInItemORM.income == income)
         .order_by(ExInItemORM.id)
