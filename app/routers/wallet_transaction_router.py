@@ -14,7 +14,6 @@ from models.wallet_transaction import WalletTransactionORM
 from models.wallet import WalletORM
 from models.exin_item import ExInItemORM
 from models.currency import CurrencyORM
-from models.user_wallets import UserWalletsORM
 
 
 class TransactionInstanceBase(BaseModel):
@@ -63,7 +62,7 @@ class TransactionCreate(TransactionBase):
 
 class Transaction(TransactionInstanceBase):
     model_config = ConfigDict(from_attributes=True)
-    wallet_id: int # type: ignore
+    wallet_id: int  # type: ignore
     user_id: int
     # user_name: str
     id: int
@@ -172,6 +171,7 @@ async def put_wallet_transaction(
     except (IntegrityError, ValueError) as ex:
         raise HTTPException(422, str(ex))
 
+
 @router.get("/{doc_id}", response_model=list[Transaction])
 async def get_wallet_transaction(
     doc_id: str,
@@ -204,29 +204,46 @@ async def del_wallet_transaction(
 @router.get("/")
 async def get_wallet_transactions(
     currency_name: str,
-    limit: int = 30,
+    date: str | None = None,
+    filter: str = "",
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token)
 ):
     from_condition = (((WalletTransactionORM.exin_item_id == None) &
-                (WalletTransactionORM.amount < 0)) | 
-            (WalletTransactionORM.exin_item_id != None))
+                       (WalletTransactionORM.amount < 0)) |
+                      (WalletTransactionORM.exin_item_id != None))
     to_condition = ((WalletTransactionORM.exin_item_id == None) &
-                (WalletTransactionORM.amount >= 0))
+                    (WalletTransactionORM.amount >= 0))
 
-    amount = getattr(WalletTransactionORM,f'amount{currency_name}')
+    amount = getattr(WalletTransactionORM, f'amount{currency_name}')
     wallet_from_case = case((from_condition, WalletTransactionORM.wallet_id))
     wallet_to_case = case((to_condition, WalletTransactionORM.wallet_id))
     amount_from_case = case(
         (from_condition, case((
             WalletTransactionORM.exin_item_id == None, WalletTransactionORM.amount
-        ), else_= amount)
+        ), else_=amount)
         )
     )
     amount_to_case = case((to_condition, WalletTransactionORM.amount))
+
+    filter_condition = True
+    if filter:
+        filter_condition = (
+            (WalletTransactionORM.comment.ilike(f'%{filter}%'))
+            | (ExInItemORM.name.ilike(f'%{filter}%'))
+        ) 
+    elif date:
+        if date:
+            date_limit = datetime.fromisoformat(date)
+            filter_condition = WalletTransactionORM.date >= date_limit
+        else:
+            raise Exception("Date not filled")
+
     query_trz = (
         select(
             WalletTransactionORM.doc_id,
+            ExInItemORM.income.label("exin_item_income"),
+            func.max(ExInItemORM.name).label("exin_item_name"),
             func.max(WalletTransactionORM.user_id).label("user_id"),
             func.max(WalletTransactionORM.date).label("datetime"),
             func.max(func.date(WalletTransactionORM.date)).label("date"),
@@ -236,10 +253,13 @@ async def get_wallet_transactions(
             func.sum(amount_from_case).label('amount_from'),
             func.sum(amount_to_case).label('amount_to'),
             func.max(WalletTransactionORM.comment).label("comment"),
+            func.max(UserORM.name).label("user_name"),
         )
         .select_from(WalletTransactionORM)
         .join(UserORM, (UserORM.id == WalletTransactionORM.user_id) & (UserORM.family_group == user.family_group))
-        .group_by(WalletTransactionORM.doc_id)
+        .outerjoin(ExInItemORM, ExInItemORM.id == WalletTransactionORM.exin_item_id)
+        .where(filter_condition) # type: ignore
+        .group_by(WalletTransactionORM.doc_id, "exin_item_income")
     ).alias()
 
     # Создаем псевдонимы для таблиц
@@ -253,11 +273,9 @@ async def get_wallet_transactions(
             query_trz.c.doc_id,
             query_trz.c.date,
             query_trz.c.datetime,
-            UserORM.id.label("user_id"),
-            UserORM.name.label("user_name"),
-            ExInItemORM.id.label("exin_item_id"),
-            ExInItemORM.name.label("exin_item_name"),
-            ExInItemORM.income.label("exin_item_income"),
+            query_trz.c.exin_item_id,
+            query_trz.c.exin_item_name,
+            query_trz.c.exin_item_income,
             query_trz.c.wallet_from_id,
             wallet_from.c.name.label("wallet_from_name"),
             wallet_from.c.balance.label("wallet_from_balance"),
@@ -271,10 +289,10 @@ async def get_wallet_transactions(
             query_trz.c.amount_from,
             query_trz.c.amount_to,
             query_trz.c.comment,
+            query_trz.c.user_id,
+            query_trz.c.user_name,
         )
         .select_from(query_trz)
-        .join(UserORM, UserORM.id == query_trz.c.user_id)
-        .outerjoin(ExInItemORM, ExInItemORM.id == query_trz.c.exin_item_id)
         .join(wallet_from, wallet_from.c.id == query_trz.c.wallet_from_id)
         .join(wallet_from_currency, wallet_from_currency.c.id == wallet_from.c.currency_id)
         .outerjoin(wallet_to, wallet_to.c.id == query_trz.c.wallet_to_id)
@@ -308,7 +326,7 @@ async def get_wallet_transactions(
                             'id', query_main.c.wallet_from_currency_id,
                             'name', query_main.c.wallet_from_currency_name,
                         ),
-                    ), 
+                    ),
                     'wallet_to', func.json_build_object(
                         'id', query_main.c.wallet_to_id,
                         'name', query_main.c.wallet_to_name,
@@ -326,8 +344,7 @@ async def get_wallet_transactions(
         )
         .group_by(query_main.c.date)
         .order_by(desc(query_main.c.date))
-        .limit(limit)
     )
+
     result = (await db.execute(query)).mappings().all()
     return result
-    
