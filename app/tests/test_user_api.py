@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import TELEGRAM_BOT_SECRET
+from core.config import TELEGRAM_BOT_SECRET, OPENAI_API_KEY
 from models.user import UserORM
 from .conftest import make_user
 
@@ -244,3 +244,18 @@ async def test_update_user_double_telegram_id(client: AsyncClient, db_session: A
     headers = dict(TOKEN=token.token)
     response = await client.put(f"/users/{user.id}", headers=headers, json=dict(telegram_id=payload2['telegram_id'])) # type: ignore
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_openai_api_key(client: AsyncClient, db_session: AsyncSession):
+    payload = dict(
+        username='New user',
+        password='123',
+        telegram_id=123,
+        email='user@example.com'
+    )
+    user, token = await make_user(db_session, **payload)  # type: ignore
+    response = await client.get(f"/users/{user.id}/openai_key", headers=dict(TOKEN='123'))
+    assert response.status_code == 200
+    result = response.json()
+    assert result['key'] == OPENAI_API_KEY

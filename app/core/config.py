@@ -85,3 +85,6 @@ BINANCE_CM_KLINES_URL = '/dapi/v3/klines'
 BINANCE_CM_ACCOUNT_INFO_URL = '/dapi/v3/account'
 BINANCE_CM_MARKET_INFO_URL = '/dapi/v3/exchangeInfo'
 BINANCE_CM_OPEN_ORDERS_URL = '/dapi/v3/openOrders'
+
+# OpenAI API key
+OPENAI_API_KEY = get_env_value('OPENAI_API_KEY')

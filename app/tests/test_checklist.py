@@ -50,8 +50,8 @@ async def test_read_checklist(client: AsyncClient, db_session: AsyncSession, jwt
     result = response.json()
     assert isinstance(result, list)
     assert len(result) == 2
-    assert result[0]['text'] == checklist_item1.text
-    assert result[1]['text'] == checklist_item2.text
+    assert result[0]['text'] == checklist_item2.text
+    assert result[1]['text'] == checklist_item1.text
 
 
 @pytest.mark.asyncio
@@ -60,17 +60,17 @@ async def test_update_checklist(client: AsyncClient, db_session: AsyncSession, j
         checked = True
     )
 
-    response = await client.put(f"/checklist/999", json=payload)
+    response = await client.patch(f"/checklist/999", json=payload)
     assert response.status_code == 401
 
     token, user = jwt_token
     headers = dict(TOKEN=token)
 
-    response = await client.put(f"/checklist/999", headers=headers, json=payload)
+    response = await client.patch(f"/checklist/999", headers=headers, json=payload)
     assert response.status_code == 404
 
     checklist_item = await ChecklistORM.create(db_session, text='Хлеб', user_id=user.id)
-    response = await client.put(f"/checklist/{checklist_item.id}", headers=headers, json=payload)
+    response = await client.patch(f"/checklist/{checklist_item.id}", headers=headers, json=payload)
     assert response.status_code == 200
     assert response.json()['checked'] == payload['checked']
 

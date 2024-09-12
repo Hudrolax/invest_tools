@@ -8,6 +8,7 @@ from routers import check_token, create_access_token, telegram_bot_authorized
 from core.db import get_db
 from models.user import UserORM
 from models.token import TokenORM
+from core.config import OPENAI_API_KEY
 
 
 class UserBase(BaseModel):
@@ -47,6 +48,8 @@ class Token(BaseModel):
     description: str
     token: str
 
+class OpenAIToken(BaseModel):
+    key: str
 
 router = APIRouter(
     prefix="/users",
@@ -198,3 +201,15 @@ async def del_user(
         return await UserORM.delete(db, id=user_id)
     except NoResultFound:
         raise HTTPException(404, f'User with id {user_id} not found.')
+
+
+@router.get("/{user_id}/openai_key", response_model=OpenAIToken)
+async def get_openai_token(
+    user_id: int,
+    user: UserORM = Depends(check_token)
+) -> OpenAIToken:
+    """Returns OpenAI token"""
+    if user.id != user_id and not user.superuser:  # type: ignore
+        raise HTTPException(401, 'Wrong TOKEN')
+
+    return OpenAIToken(key=OPENAI_API_KEY)

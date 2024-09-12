@@ -81,7 +81,10 @@ async def get_currency(
     db: AsyncSession = Depends(get_db),
 ) -> Currency:
     try:
-        return await CurrencyORM.get(db, id=currency_id)
+        result =  await CurrencyORM.get(db, id=currency_id)
+        if not result:
+            raise NoResultFound
+        return result
     except NoResultFound:
         raise HTTPException(404, f'Currency with id {currency_id} not found.')
 

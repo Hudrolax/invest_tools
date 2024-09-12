@@ -86,7 +86,7 @@ async def patch_checklist(
         checklist = (await db.execute(query)).scalars().first()
         if checklist is None:  # type: ignore
             raise HTTPException(
-                403, "This cheklist item not from your family group or not found.")
+                404, "This cheklist item not from your family group or not found.")
         checklist.checked = data.checked  # type: ignore
         await db.flush()
         await db.refresh(checklist)
@@ -154,10 +154,10 @@ async def del_checklist(
             .where(ChecklistORM.id == checklist_id)
         )
         checklist = (await db.execute(query)).scalars().first()
-        if checklist is None:  # type: ignore
+        if checklist is None:
             raise HTTPException(
-                403, "This cheklist item not from your family group or not found.")
+                404, "This cheklist item not from your family group or not found.")
 
-        return await ChecklistORM.delete(db, checklist.id)  # type: ignore
+        return await ChecklistORM.delete(db, checklist.id)
     except NoResultFound as ex:
         raise HTTPException(404, str(ex))

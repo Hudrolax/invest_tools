@@ -54,7 +54,7 @@ class ChecklistORM(Base):
         return existing_entry
     
     @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
+    async def delete(cls, db: AsyncSession, id: int | Column[int]) -> bool:
         try:
             # попытаться получить существующую запись
             existing_entry = await db.get(cls, id)
