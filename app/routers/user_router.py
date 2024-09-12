@@ -25,6 +25,12 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserData(BaseModel):
+    user_id: int
+    token: str
+    openai_api_key: str
+
+
 class UserCreate(UserLogin):
     name: str
     telegram_id: int | None = None
@@ -111,14 +117,14 @@ async def recover(
         raise HTTPException(422, str(ex))
 
 
-@router.post("/login")
+@router.post("/login", response_model=UserData)
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
     try:
         user = await UserORM.get_by_username(db, user_data.username)
         if user.verify_password(user_data.password):
             token = create_access_token(
                 user_data.model_dump(exclude_unset=True))
-            return dict(user_id=user.id, token=token)
+            return UserData(user_id=user.id, token=token, openai_api_key=OPENAI_API_KEY)
         else:
             raise HTTPException(401, 'Wrong password')
     except NoResultFound:
@@ -203,13 +209,13 @@ async def del_user(
         raise HTTPException(404, f'User with id {user_id} not found.')
 
 
-@router.get("/{user_id}/openai_key", response_model=OpenAIToken)
-async def get_openai_token(
-    user_id: int,
-    user: UserORM = Depends(check_token)
-) -> OpenAIToken:
-    """Returns OpenAI token"""
-    if user.id != user_id and not user.superuser:  # type: ignore
-        raise HTTPException(401, 'Wrong TOKEN')
+# @router.get("/{user_id}/openai_key", response_model=OpenAIToken)
+# async def get_openai_token(
+#     user_id: int,
+#     user: UserORM = Depends(check_token)
+# ) -> OpenAIToken:
+#     """Returns OpenAI token"""
+#     if user.id != user_id and not user.superuser:  # type: ignore
+#         raise HTTPException(401, 'Wrong TOKEN')
 
-    return OpenAIToken(key=OPENAI_API_KEY)
+#     return OpenAIToken(key=OPENAI_API_KEY)

@@ -247,15 +247,37 @@ async def test_update_user_double_telegram_id(client: AsyncClient, db_session: A
 
 
 @pytest.mark.asyncio
-async def test_get_openai_api_key(client: AsyncClient, db_session: AsyncSession):
-    payload = dict(
+async def test_login(client: AsyncClient, db_session: AsyncSession):
+    payload1 = dict(
         username='New user',
         password='123',
         telegram_id=123,
         email='user@example.com'
     )
-    user, token = await make_user(db_session, **payload)  # type: ignore
-    response = await client.get(f"/users/{user.id}/openai_key", headers=dict(TOKEN='123'))
+    user, token = await make_user(db_session, **payload1) # type: ignore
+
+    payload = dict(
+            username='New user',
+            password='123'
+        )
+
+    response = await client.post("/users/register", json=payload, payload=payload)
     assert response.status_code == 200
-    result = response.json()
-    assert result['key'] == OPENAI_API_KEY
+    assert response['user_id'] == user.id
+    assert response['token'] == token
+    assert response['openai_api_key'] == OPENAI_API_KEY
+
+
+# @pytest.mark.asyncio
+# async def test_get_openai_api_key(client: AsyncClient, db_session: AsyncSession):
+#     payload = dict(
+#         username='New user',
+#         password='123',
+#         telegram_id=123,
+#         email='user@example.com'
+#     )
+#     user, token = await make_user(db_session, **payload)  # type: ignore
+#     response = await client.get(f"/users/{user.id}/openai_key", headers=dict(TOKEN='123'))
+#     assert response.status_code == 200
+#     result = response.json()
+#     assert result['key'] == OPENAI_API_KEY
