@@ -254,18 +254,18 @@ async def test_login(client: AsyncClient, db_session: AsyncSession):
         telegram_id=123,
         email='user@example.com'
     )
-    user, token = await make_user(db_session, **payload1) # type: ignore
+    user, _ = await make_user(db_session, **payload1)  # type: ignore
 
     payload = dict(
             username='New user',
             password='123'
         )
 
-    response = await client.post("/users/register", json=payload, payload=payload)
+    response = await client.post("/users/login", json=payload)
     assert response.status_code == 200
-    assert response['user_id'] == user.id
-    assert response['token'] == token
-    assert response['openai_api_key'] == OPENAI_API_KEY
+    result = response.json()
+    assert result['user_id'] == user.id
+    assert result['openai_api_key'] == OPENAI_API_KEY
 
 
 # @pytest.mark.asyncio

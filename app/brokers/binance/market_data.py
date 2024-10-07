@@ -1,6 +1,6 @@
 import logging
 
-from . import BinanceBrokers
+from . import BinanceBroker
 from .requests import unauthorizrd_request
 
 from core.config import (
@@ -51,11 +51,11 @@ async def get_klines(
     return await unauthorizrd_request(broker, url, 'get', params, logger)
 
 
-async def get_market_info(broker: str) -> dict:
+async def get_market_info(broker: BinanceBroker) -> dict:
     """The function gets exchange info (symbols, limits)
 
     Args:
-        brokers (BinanceBrokers): Binance brokers enum
+        brokers (BinanceBroker): Binance brokers enum
 
     Returns:
         dict: parsed JSON data

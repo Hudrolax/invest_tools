@@ -10,7 +10,7 @@ import urllib.parse
 from typing import Callable
 
 from ..exceptions import TickHandleError
-from . import BinanceBrokers
+from . import BinanceBroker
 from core.config import (
     BINANCE_API_SECRET,
     BINANCE_API_KEY,
@@ -22,7 +22,7 @@ from core.config import (
 
 
 async def unauthorizrd_request(
-    broker: BinanceBrokers,
+    broker: BinanceBroker,
     endpoint: str,
     http_method: str,
     params: dict,
@@ -69,7 +69,7 @@ async def unauthorizrd_request(
 
 
 async def authorized_request(
-    broker: BinanceBrokers,
+    broker: BinanceBroker,
     endpoint: str,
     http_method: str,
     params: dict,

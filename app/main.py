@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 import core.config
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.config import Config
 from uvicorn.server import Server
 
@@ -13,8 +14,11 @@ from routers.broker_router import router as broker_router
 from routers.exin_item_router import router as exin_item_router
 from routers.currency_router import router as currency_router
 from routers.wallet_router import router as wallet_router
-from routers.wallet_transaction_router import router as wallet_transaction_router
+from routers.wallet_transaction_router import (
+    router as wallet_transaction_router,
+)
 from routers.checklist_router import router as checklist_router
+from routers.lines_router import router as lines_router
 
 from tasks import (
     task_run_market_streams,
@@ -31,9 +35,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    lifespan=lifespan, # type: ignore
+    lifespan=lifespan,
     openapi_prefix="/api/v2",
 )
+
+app.add_middleware(
+       CORSMiddleware,
+       allow_origins=["http://localhost:3000"],  # Разрешенные источники
+       allow_credentials=True,
+       allow_methods=["*"],  # Разрешите все методы или укажите конкретные
+       allow_headers=["*"],  # Разрешите все заголовки или укажите конкретные
+   )
 
 app.include_router(user_router)
 app.include_router(symbol_router)
@@ -44,6 +56,7 @@ app.include_router(currency_router)
 app.include_router(wallet_router)
 app.include_router(wallet_transaction_router)
 app.include_router(checklist_router)
+app.include_router(lines_router)
 
 stop_event = asyncio.Event()
 
@@ -61,6 +74,7 @@ async def main() -> None:
         task_update_market_data(stop_event),
         task_remove_old_checklist_items(stop_event, sessionmanager),
     )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

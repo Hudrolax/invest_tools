@@ -5,11 +5,9 @@ import logging
 import websockets
 
 from utils import async_traceback_errors
-from brokers.binance import BinanceTimeframes, BinanceBrokers, BinanceMarketStreamTypes
+from brokers.binance import BinanceTimeframe, BinanceBroker, BinanceMarketStreamType
 
 from core.config import (
-    BINANCE_API_KEY,
-    BINANCE_API_SECRET,
     BINANCE_SPOT_WSS,
     BINANCE_UM_WSS,
     BINANCE_CM_WSS,
@@ -21,18 +19,18 @@ logger = logging.getLogger('binance_stream')
 @async_traceback_errors(logger)
 async def market_stream(
     handler: Callable,
-    broker: BinanceBrokers,
+    broker: BinanceBroker,
     symbol: str,
     stop_event: asyncio.Event,
-    type: BinanceMarketStreamTypes,
-    timeframe: BinanceTimeframes | None = None,
+    stream_type: BinanceMarketStreamType,
+    timeframe: BinanceTimeframe | None = None,
 ):
     """ The function runs websocket market stream
     Args:
         handler (Callable): handler func for handle the data
         symbol (str): Symbol name.
-        timeframe (BinanceTimeframes | None): Kline data timeframe. Default None.
-        type: BinanceMarketStreamTypes: Stream type.
+        timeframe (BinanceTimeframe | None): Kline data timeframe. Default None.
+        stream_type: BinanceMarketStreamType: Stream type.
         stop_event (asyncio.Event): stop event
     """
     symbol_name = symbol.lower()
@@ -48,12 +46,12 @@ async def market_stream(
         raise ValueError(f'Wrong broker {broker}')
 
     # choose stream type
-    if type == 'kline':
+    if stream_type == 'kline':
         url = f'{wss_base}/ws/{symbol_name}@kline_{timeframe}'
-    elif type in ['ticker', 'trade']:
-        url = f'{wss_base}/ws/{symbol_name}@{type}'
+    elif stream_type in ['ticker', 'trade']:
+        url = f'{wss_base}/ws/{symbol_name}@{stream_type}'
     else:
-        raise ValueError(f'Wrong stream type: {type}')
+        raise ValueError(f'Wrong stream type: {stream_type}')
 
     while not stop_event.is_set():
         try:
@@ -61,7 +59,7 @@ async def market_stream(
                 while not stop_event.is_set():
                     data = await ws.recv()
                     data = json.loads(data)
-                    await handler(broker=broker, symbol=symbol, timeframe=timeframe, type=type, data=data)
+                    await handler(broker=broker, symbol=symbol, timeframe=timeframe, data=data, stream_type=stream_type)
 
         except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK):
             logger.warning("Connection closed, retrying...")

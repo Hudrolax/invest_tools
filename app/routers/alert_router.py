@@ -172,7 +172,7 @@ async def get_alert(
 
         return Alert(**alert_dict)
     except NoResultFound:
-        raise HTTPException(404, f'Alert with id {alert_id} not dound.')
+        raise HTTPException(404, f'Alert with id {alert_id} not found.')
 
 
 @router.delete("/{alert_id}", response_model=bool)
@@ -188,6 +188,6 @@ async def del_alert(
 
         return await AlertORM.delete(db, id=alert_id)
     except NoResultFound:
-        raise HTTPException(404, f'Alert with id {alert_id} not dound.')
+        raise HTTPException(404, f'Alert with id {alert_id} not found.')
     except Exception as ex:
         raise HTTPException(500, str(ex))

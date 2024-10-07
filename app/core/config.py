@@ -86,5 +86,10 @@ BINANCE_CM_ACCOUNT_INFO_URL = '/dapi/v3/account'
 BINANCE_CM_MARKET_INFO_URL = '/dapi/v3/exchangeInfo'
 BINANCE_CM_OPEN_ORDERS_URL = '/dapi/v3/openOrders'
 
+# Bybit WSS endpoints
+BYBIT_WSS_SPOT = 'wss://stream.bybit.com/v5/public/spot'
+BYBIT_WSS_PERPETUAL = 'wss://stream.bybit.com/v5/public/linear'
+BYBIT_WSS_INVERSE = 'wss://stream.bybit.com/v5/public/inverse'
+
 # OpenAI API key
 OPENAI_API_KEY = get_env_value('OPENAI_API_KEY')

@@ -9,12 +9,14 @@ from core.db import Base
 
 class BrokerORM(Base):
     __tablename__ = "brokers"
-    id = Column(Integer, primary_key=True, index=True) # type: ignore
-    name = Column(String, unique=True, nullable=False) # type: ignore
-    symbols = relationship('SymbolORM', back_populates='broker', cascade="all, delete")
+    id = Column(Integer, primary_key=True, index=True)  # type: ignore
+    name = Column(String, unique=True, nullable=False)  # type: ignore
+    symbols = relationship(
+        "SymbolORM", back_populates="broker", cascade="all, delete"
+    )
 
     def __str__(self) -> str:
-        return f'{self.name}'
+        return f"{self.name}"
 
     @classmethod
     async def create(cls, db: AsyncSession, **kwargs) -> Self:
@@ -34,7 +36,7 @@ class BrokerORM(Base):
             existing_entry = await db.get(cls, id)
             if not existing_entry:
                 raise NoResultFound
-            
+
             # обновление полей записи
             for attr, value in kwargs.items():
                 setattr(existing_entry, attr, value)
@@ -44,7 +46,7 @@ class BrokerORM(Base):
             await db.rollback()
             raise
         return existing_entry
-    
+
     @classmethod
     async def delete(cls, db: AsyncSession, id: int) -> bool:
         try:
@@ -70,7 +72,9 @@ class BrokerORM(Base):
 
     @classmethod
     async def get_by_name(cls, db: AsyncSession, name: str) -> Self:
-        result = (await db.scalars(select(cls).where(cls.name == name))).first()
+        result = (
+            await db.scalars(select(cls).where(cls.name == name))
+        ).first()
         if not result:
             raise NoResultFound
         return result
@@ -95,5 +99,7 @@ class BrokerORM(Base):
 
     @classmethod
     async def get_all(cls, db: AsyncSession) -> list[Self]:
-        result = await db.execute(select(cls).order_by(asc(cls.id)))  # сортировка по возрастанию id
+        result = await db.execute(
+            select(cls).order_by(asc(cls.id))
+        )  # сортировка по возрастанию id
         return list(result.scalars().all())

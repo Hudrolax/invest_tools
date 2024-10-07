@@ -12,6 +12,7 @@ from core.db import Base
 from models.user import UserORM
 from models.symbol import SymbolORM
 from models.broker import BrokerORM
+from models.lines import LineORM
 
 
 Triggers = Literal['above', 'below']
@@ -22,7 +23,8 @@ class AlertORM(Base):
     id = Column(Integer, primary_key=True, index=True)
     symbol_id = Column(Integer, ForeignKey('symbols.id', ondelete='CASCADE'), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
-    price = Column(DECIMAL(precision=20, scale=8), nullable=False)
+    price = Column(DECIMAL(precision=20, scale=8), nullable=True)
+    line_id = Column(Integer, ForeignKey('lines.id', ondelete='CASCADE'), nullable=True, index=True)
     trigger = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, index=True) 
     triggered_at = Column(DateTime(timezone=True), nullable=True, default=None, index=True) 
@@ -32,20 +34,30 @@ class AlertORM(Base):
 
     symbol = relationship('SymbolORM', back_populates='alerts')
     user = relationship('UserORM', back_populates='alerts')
+    line = relationship('LineORM', back_populates='alerts')
 
     def __str__(self):
-        return f'alert {self.symbol} {self.trigger} {self.price}'
+        price_str = self.price if bool(self.price) else f'line id {self.line_id}'
+        return f'alert {self.symbol} {self.trigger} {price_str}'
     
     async def delete_self(self, db: AsyncSession) -> bool:
         return await AlertORM.delete(db, self.id) # type: ignore
 
     @classmethod
     async def validate(cls, alert: 'AlertORM.instance', db: AsyncSession) -> None:
-        if not alert.price or alert.price < 0:
+        if (not alert.price or alert.price < 0) and (alert.line_id is None):
             raise ValueError('Price should be greater than zero.')
+
+        if (alert.price is None) and (alert.line_id is None):
+            raise ValueError('Price or line_id should be set.')
         
         user = (await db.scalars(select(UserORM).where(UserORM.id == alert.user_id))).first()
         symbol = (await db.scalars(select(SymbolORM).where(SymbolORM.id == alert.symbol_id))).first()
+
+        if alert.line_id is not None:
+            line = (await db.scalars(select(LineORM).where(LineORM.id == alert.line_id))).first()
+            if not line:
+                raise ValueError(f'Line with id {alert.line_id} not found.')
 
         if not user:
             raise ValueError(f'User with id {alert.user_id} not found.')
@@ -81,7 +93,7 @@ class AlertORM(Base):
             alert = cls(**kwargs)
             alert.created_at = datetime.now()
 
-            if isinstance(alert.price, int) or isinstance(alert.price, str):
+            if isinstance(alert.price, int) or isinstance(alert.price, str) or isinstance(alert.price, float):
                 alert.price = Decimal(alert.price)
 
 

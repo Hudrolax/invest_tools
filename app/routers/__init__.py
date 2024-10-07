@@ -15,10 +15,13 @@ api_key_header = APIKeyHeader(name="TOKEN", auto_error=False)
 telegram_bot_secret = APIKeyHeader(name="TBOT-SECRET", auto_error=False)
 telegram_bot_user_id = APIKeyHeader(name="TELEGRAM-ID", auto_error=False)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60*24*356*99
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 356 * 99
 
 
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)):
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+):
     to_encode = data.copy()
     expire = datetime.now(UTC) + (expires_delta)
     to_encode.update({"exp": expire})
@@ -34,7 +37,7 @@ def verify_token(token: str) -> str:
 
     Returns:
         str: username
-    """    
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -42,14 +45,17 @@ def verify_token(token: str) -> str:
     )
     try:
         payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-        username: str = payload.get("username") # type: ignore
+        username: str | None = payload.get("username")  # type: ignore
         if username is None:
             raise credentials_exception
+
         expiration = payload.get("exp")
-        if expiration is not None and datetime.fromtimestamp(expiration, UTC) < datetime.now(UTC):
+        if expiration is not None and datetime.fromtimestamp(
+            expiration, UTC
+        ) < datetime.now(UTC):
             raise HTTPException(status_code=401, detail="Token is expired")
         return username  # или полный payload, если нужно
-    except (JWTError, AttributeError) as ex:
+    except (JWTError, AttributeError):
         raise credentials_exception
 
 
@@ -71,7 +77,7 @@ async def check_token(
             except NoResultFound:
                 username = verify_token(header_token)
                 return await UserORM.get_by_username(db, username)
-    except:
+    except Exception:
         raise HTTPException(401)
 
 
@@ -86,21 +92,23 @@ async def telegram_bot_authorized(
 
 
 def check_symbol_name(symbol_name: str, broker_name: str):
-    if not symbol_name in binance_symbols[broker_name]:
-        raise ValueError(f'Unexisiting symbol with name {symbol_name}')
+    if symbol_name not in binance_symbols[broker_name]:
+        raise ValueError(f"Unexisiting symbol with name {symbol_name}")
 
 
 def check_currency_name(currency_name: str, broker_name: str) -> None:
     for symbol_name in binance_symbols[broker_name]:
-        if symbol_name.startswith(currency_name.upper()) or symbol_name.endswith(currency_name.upper()):
+        if symbol_name.startswith(
+            currency_name.upper()
+        ) or symbol_name.endswith(currency_name.upper()):
             return
 
-    raise ValueError(f'Unexisiting currency with name {currency_name}')
+    raise ValueError(f"Unexisiting currency with name {currency_name}")
 
 
 def format_decimal(value):
     """Форматирует десятичные числа для сериализации."""
     if value is not None:
         # Преобразование в строку с удалением незначащих нулей
-        return format(value, 'f').rstrip('0').rstrip('.')
+        return format(value, "f").rstrip("0").rstrip(".")
     return None

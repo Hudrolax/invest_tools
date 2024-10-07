@@ -3,14 +3,15 @@ from decimal import Decimal
 import logging
 
 from core.db import sessionmanager
-from brokers.binance import BinanceBrokers
+from brokers.binance import BinanceBroker
+from brokers.bybit import BybitBroker
 
 from models.symbol import SymbolORM
 
 logger = logging.getLogger(__name__)
 
 async def handle_rates(
-    broker: BinanceBrokers,
+    broker: BinanceBroker | BybitBroker,
     symbol: str,
     last_price: Decimal | str | int | float,
 ) -> None:
