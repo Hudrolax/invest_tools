@@ -30,6 +30,7 @@ class UserORM(Base):
     user_exin_items = relationship('UserExInItemORM', back_populates='user', cascade="all, delete")
     checklist = relationship('ChecklistORM', back_populates='user', cascade="all, delete")
     lines = relationship('LineORM', back_populates='user', cascade="all, delete")
+    orders = relationship('OrderORM', back_populates='user', cascade="all, delete")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

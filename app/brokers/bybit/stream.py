@@ -5,6 +5,7 @@ import json
 from typing import Callable
 import logging
 import websockets
+from datetime import datetime
 
 from utils import async_traceback_errors
 from brokers.bybit import BybitBroker, BybitTimeframe, BybitStreamType
@@ -54,6 +55,8 @@ async def ticker_stream(
                     args = [f'kline.{timeframe}.{symbol.upper()}']
                 elif stream_type == 'Ticker':
                     args = [f'tickers.{symbol.upper()}']
+                elif stream_type == 'Trade':
+                    args = [f'publicTrade.{symbol.upper()}']
                 else:
                     raise ValueError(f"Wrong stream type {stream_type}")
 
@@ -61,7 +64,9 @@ async def ticker_stream(
                     'op': 'subscribe',
                     'args': args
                 }))
+                print(f"Подписались на поток {broker} {stream_type} {symbol}")
 
+                ping_time = datetime.now()
                 while not stop_event.is_set():
                     try:
                         data = await asyncio.wait_for(ws.recv(), timeout=30)
@@ -70,8 +75,11 @@ async def ticker_stream(
                         data = json.loads(data)
                         await handler(broker=broker, symbol=symbol, data=data, stream_type=stream_type)
 
-                        # Отправляем пинг, чтобы поддержать соединение
-                        await ws.send(json.dumps({'op': 'ping'}))
+                        time_delta = (datetime.now() - ping_time).total_seconds()
+                        if time_delta >= 30:
+                            # Отправляем пинг, чтобы поддержать соединение
+                            await ws.send(json.dumps({'op': 'ping'}))
+                            ping_time = datetime.now()
 
                     except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
                         print("Соединение потеряно, попытка переподключения...")

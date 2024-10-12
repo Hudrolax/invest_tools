@@ -86,6 +86,11 @@ BINANCE_CM_ACCOUNT_INFO_URL = '/dapi/v3/account'
 BINANCE_CM_MARKET_INFO_URL = '/dapi/v3/exchangeInfo'
 BINANCE_CM_OPEN_ORDERS_URL = '/dapi/v3/openOrders'
 
+# Bybit
+BYBIT_API_KEY = get_env_value('BYBIT_API_KEY')
+BYBIT_API_SECRET = get_env_value('BYBIT_API_SECRET')
+BYBIT_API_ENDPOINT = 'https://api.bybit.com/v5'
+
 # Bybit WSS endpoints
 BYBIT_WSS_SPOT = 'wss://stream.bybit.com/v5/public/spot'
 BYBIT_WSS_PERPETUAL = 'wss://stream.bybit.com/v5/public/linear'

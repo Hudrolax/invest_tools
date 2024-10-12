@@ -4,25 +4,29 @@ import logging
 import aiohttp
 import hashlib
 import hmac
-import time
 import json
 import urllib.parse
 from typing import Callable
+import time
 
-from ..exceptions import TickHandleError
-from . import BinanceBroker
+from .exceptions import TickHandleError
+from .binance import BinanceBroker
+from .bybit import BybitBroker, BYBIT_BROKERS
+from .investing_com import InvestingComBroker
 from core.config import (
     BINANCE_API_SECRET,
     BINANCE_API_KEY,
-
     BINANCE_SPOT_API,
     BINANCE_UM_API,
     BINANCE_CM_API,
+    BYBIT_API_ENDPOINT,
+    BYBIT_API_KEY,
+    BYBIT_API_SECRET,
 )
 
 
 async def unauthorizrd_request(
-    broker: BinanceBroker,
+    broker: BinanceBroker | BybitBroker,
     endpoint: str,
     http_method: str,
     params: dict,
@@ -48,6 +52,10 @@ async def unauthorizrd_request(
                 url = BINANCE_UM_API + endpoint
             elif broker == 'Binance-CM-Futures':
                 url = BINANCE_CM_API + endpoint
+            elif broker in BYBIT_BROKERS:
+                url = BYBIT_API_ENDPOINT
+            else:
+                raise ValueError(f'unknowk broker "{broker}"')
             
             async with aiohttp.ClientSession() as session:
                 async with session.request(http_method, url, params=params) as response:
@@ -69,13 +77,13 @@ async def unauthorizrd_request(
 
 
 async def authorized_request(
-    broker: BinanceBroker,
+    broker: BinanceBroker | BybitBroker,
     endpoint: str,
     http_method: str,
     params: dict,
     ErrorClass: Callable,
     logger: logging.Logger,
-) -> dict | list:
+) -> dict:
     """The function makes authorized request to API (trades)
 
     Args:
@@ -90,22 +98,43 @@ async def authorized_request(
     """
     if broker == 'Binance-spot':
         url = BINANCE_SPOT_API + endpoint
+        secret = str(BINANCE_API_SECRET)
     elif broker == 'Binance-UM-Futures':
         url = BINANCE_UM_API + endpoint
+        secret = str(BINANCE_API_SECRET)
     elif broker == 'Binance-CM-Futures':
         url = BINANCE_CM_API + endpoint
+        secret = str(BINANCE_API_SECRET)
+    elif broker in BYBIT_BROKERS:
+        url = BYBIT_API_ENDPOINT + endpoint
+        secret = str(BYBIT_API_SECRET)
+    else:
+        raise ValueError(f'unknown broker "{broker}')
 
     # make the signature
     query_string = urllib.parse.urlencode(params)
-    signature = hmac.new(str(BINANCE_API_SECRET).encode(),
-                         query_string.encode(), hashlib.sha256).hexdigest()
-    params["signature"] = signature
-
-    headers = {
-        "X-MBX-APIKEY": BINANCE_API_KEY
-    }
 
     try:
+        if broker in BYBIT_BROKERS:
+            time_stamp=str(int(time.time() * 10 ** 3))
+            param_str= str(time_stamp) + BYBIT_API_KEY + '5000' + query_string
+            hash = hmac.new(bytes(secret, "utf-8"), param_str.encode("utf-8"),hashlib.sha256)
+            signature = hash.hexdigest()
+            headers = {
+                "X-BAPI-API-KEY": BYBIT_API_KEY,
+                "X-BAPI-SIGN": signature,
+                "X-BAPI-TIMESTAMP": time_stamp,
+                "X-BAPI-RECV-WINDOW": '5000',
+                'Content-Type': 'application/json',
+            }
+        else:
+            signature = hmac.new(secret.encode(),
+                query_string.encode(), hashlib.sha256).hexdigest()
+            params["signature"] = signature
+            headers = {
+                "X-MBX-APIKEY": BINANCE_API_KEY
+            }
+
         async with aiohttp.ClientSession() as session:
             async with session.request(http_method, url, params=params, headers=headers) as response:
                 response.raise_for_status()  # проверка на ошибки HTTP

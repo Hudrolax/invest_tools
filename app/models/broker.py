@@ -11,9 +11,8 @@ class BrokerORM(Base):
     __tablename__ = "brokers"
     id = Column(Integer, primary_key=True, index=True)  # type: ignore
     name = Column(String, unique=True, nullable=False)  # type: ignore
-    symbols = relationship(
-        "SymbolORM", back_populates="broker", cascade="all, delete"
-    )
+    symbols = relationship("SymbolORM", back_populates="broker", cascade="all, delete")
+    orders = relationship("OrderORM", back_populates="broker", cascade="all, delete")
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -72,9 +71,7 @@ class BrokerORM(Base):
 
     @classmethod
     async def get_by_name(cls, db: AsyncSession, name: str) -> Self:
-        result = (
-            await db.scalars(select(cls).where(cls.name == name))
-        ).first()
+        result = (await db.scalars(select(cls).where(cls.name == name))).first()
         if not result:
             raise NoResultFound
         return result

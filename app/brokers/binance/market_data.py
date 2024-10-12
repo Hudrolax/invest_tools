@@ -1,13 +1,12 @@
 import logging
 
 from . import BinanceBroker
-from .requests import unauthorizrd_request
+from ..requests import unauthorizrd_request
 
 from core.config import (
     BINANCE_SPOT_KLINES_URL,
     BINANCE_UM_KLINES_URL,
     BINANCE_CM_KLINES_URL,
-
     BINANCE_SPOT_MARKET_INFO_URL,
     BINANCE_UM_MARKET_INFO_URL,
     BINANCE_CM_MARKET_INFO_URL,

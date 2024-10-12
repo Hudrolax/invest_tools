@@ -123,7 +123,7 @@ async def get_actual_streams(
             BybitStream(
                 broker=symbol.broker.name,
                 symbol=str(symbol.name),
-                stream_type="Ticker",
+                stream_type="Trade",
             )
             for symbol in symbols
             if symbol.broker.name in BYBIT_BROKERS
@@ -159,13 +159,11 @@ async def get_symbols_for_deleting(db: AsyncSession) -> list[SymbolORM]:
                         [
                             "BTCUSDT",
                             "BTCUSD",
-                            "BTCRUB",
                             "BTCARS",
                             "ETHUSDT",
                             "ETHUSD",
                             "ETHBTC",
                             "USDTARS",
-                            "USDTRUB",
                         ]
                     )
                 )

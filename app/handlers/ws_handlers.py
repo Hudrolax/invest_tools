@@ -39,18 +39,18 @@ async def ws_ticker_handler(
     timeframe: BinanceTimeframe | BybitTimeframe | None = None,
 ) -> None:
     """This handler do things when recived updated trade from stream"""
-    if stream_type not in ['ticker', 'Ticker']:
+    if stream_type not in ['ticker', 'Ticker', 'Trade']:
         return
 
     if broker in BINANCE_BROKERS:
         last_price = data["c"]
     elif broker in BYBIT_BROKERS:
         if (
-            data.get("topick")
-            and data["topick"].replace(symbol, "") == "tickers"
+            data.get("topic")
+            and data["topic"].replace(symbol, "") == "publicTrade."
             and data["type"] == "snapshot"
         ):
-            last_price = data["data"]["markPrice"]
+            last_price = data["data"][-1]["p"]
         else:
             return
     else:

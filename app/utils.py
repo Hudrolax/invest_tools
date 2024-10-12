@@ -24,3 +24,20 @@ def async_traceback_errors(logger: logging.Logger | None = None, raise_error: bo
                     raise
         return wrapper
     return decorator
+
+class StringNotUpperCaseError(Exception):
+    """Исключение, выбрасываемое, когда строка не в верхнем регистре."""
+    pass
+
+def check_uppercase(s: str) -> None:
+    """Проверяет, является ли строка строкой в верхнем регистре.
+
+    Args:
+        s (str): Строка для проверки.
+
+    Raises:
+        StringNotUpperCaseError: Если строка не в верхнем регистре.
+    """
+    if not s.isupper():
+        raise StringNotUpperCaseError(f"Строка '{s}' не в верхнем регистре.")
+

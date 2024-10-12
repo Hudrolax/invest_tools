@@ -14,7 +14,7 @@ async def task_update_market_data(
     while not stop_event.is_set():
         try:
             for broker in binance_symbols.keys():
-                market_data[broker] = await get_market_info(broker=broker)
+                market_data[broker] = await get_market_info(broker=broker)  # type: ignore
                 symbols = market_data[broker]['symbols']
                 binance_symbols[broker] = []
                 for symbol in symbols:

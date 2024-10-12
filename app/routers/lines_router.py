@@ -1,5 +1,5 @@
 from pydantic import BaseModel, validator
-from sqlalchemy import select
+from sqlalchemy import except_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import NoResultFound, IntegrityError
@@ -112,9 +112,15 @@ async def post_line(
 async def get_lines(
     broker_name: str,
     symbol_name: str,
+    date_min: int,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
+    try:
+        date = datetime.fromtimestamp(date_min)
+    except Exception as ex:
+        raise HTTPException(422, str(ex))
+
     query = (
         select(
             LineORM.id,
@@ -135,7 +141,7 @@ async def get_lines(
             (SymbolORM.name == symbol_name)
             & (SymbolORM.broker_id == BrokerORM.id),
         )
-        .where(LineORM.user_id == user.id)
+        .where((LineORM.user_id == user.id) & (LineORM.created_at >= date))
     )
 
     result = (await db.execute(query)).mappings().all()

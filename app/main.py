@@ -19,11 +19,14 @@ from routers.wallet_transaction_router import (
 )
 from routers.checklist_router import router as checklist_router
 from routers.lines_router import router as lines_router
+from routers.trade_router import router as trade_router
 
 from tasks import (
     task_run_market_streams,
     task_update_market_data,
     task_remove_old_checklist_items,
+    task_get_orders,
+    task_get_usd_rub_rate,
 )
 
 
@@ -57,6 +60,7 @@ app.include_router(wallet_router)
 app.include_router(wallet_transaction_router)
 app.include_router(checklist_router)
 app.include_router(lines_router)
+app.include_router(trade_router)
 
 stop_event = asyncio.Event()
 
@@ -73,6 +77,8 @@ async def main() -> None:
         task_run_market_streams(stop_event, sessionmanager),
         task_update_market_data(stop_event),
         task_remove_old_checklist_items(stop_event, sessionmanager),
+        task_get_orders(stop_event, sessionmanager),
+        task_get_usd_rub_rate(stop_event, sessionmanager),
     )
 
 

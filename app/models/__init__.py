@@ -11,3 +11,4 @@ from .user_wallets import *
 from .user_exin_items import *
 from .checklist import *
 from .lines import *
+from .order import *
