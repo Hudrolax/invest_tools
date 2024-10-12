@@ -42,6 +42,7 @@ async def task_get_orders(
             print('try to grab old orders')
             broker = await BrokerORM.get_by_name(db, "Bybit-inverse")
             symbol = await SymbolORM.get_by_name_and_broker(db, "BTCUSD", "Bybit-inverse")
+
             orders = await grab_old_orders()
             for order in orders:
                 kwargs = dict(
