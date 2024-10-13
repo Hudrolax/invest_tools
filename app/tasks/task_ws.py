@@ -164,6 +164,9 @@ async def get_symbols_for_deleting(db: AsyncSession) -> list[SymbolORM]:
                             "ETHUSD",
                             "ETHBTC",
                             "USDTARS",
+                            "USDRUB",
+                            "USDTRUB",
+                            "BTCRUB",
                         ]
                     )
                 )
