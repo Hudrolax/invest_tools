@@ -8,7 +8,7 @@ from datetime import datetime
 import uuid
 from decimal import Decimal
 
-from core.db import Base
+from .base_object import BaseDBObject
 from models.wallet import WalletORM
 from models.symbol import SymbolORM
 from models.currency import CurrencyORM
@@ -23,8 +23,8 @@ async def get_symbol_rate(db: AsyncSession, symbol_name: str, broker_name:str) -
         return Decimal(1)
 
 
-class WalletTransactionORM(Base):
-    __tablename__ = "wallet_transactions"
+class WalletTransactionORM(BaseDBObject):
+    __tablename__ = "wallet_transactions"  # type: ignore
     id = Column(BigInteger, primary_key=True, index=True)
     wallet_id = Column(Integer, ForeignKey('wallets.id', ondelete='CASCADE'), nullable=False, index=True)
     exin_item_id = Column(Integer, ForeignKey('exin_items.id', ondelete='CASCADE'), index=True)
@@ -126,24 +126,6 @@ class WalletTransactionORM(Base):
             raise
         return transaction
 
-    # @classmethod
-    # async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
-    #     try:
-    #         # попытаться получить существующую запись
-    #         existing_entry = await db.get(cls, id)
-    #         if not existing_entry:
-    #             raise NoResultFound
-            
-    #         # обновление полей записи
-    #         for attr, value in kwargs.items():
-    #             setattr(existing_entry, attr, value)
-
-    #         await db.flush()
-    #     except IntegrityError:
-    #         await db.rollback()
-    #         raise
-    #     return existing_entry
-    
     @classmethod
     async def delete(cls, db: AsyncSession, id: int) -> bool:
         try:
@@ -163,13 +145,6 @@ class WalletTransactionORM(Base):
         except (IntegrityError, OperationalError):
             await db.rollback()
             raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
 
     @classmethod
     async def get_list(cls, db: AsyncSession, **filters) -> list[Self]:

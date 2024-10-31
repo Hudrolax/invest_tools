@@ -1,4 +1,3 @@
-from core.db import Base
 from sqlalchemy import (
     Column,
     Integer,
@@ -8,7 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     String,
 )
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 
@@ -17,14 +16,15 @@ from models.broker import BrokerORM
 from typing import Literal
 from datetime import datetime
 from decimal import Decimal
+from .base_object import BaseDBObject
 
 
 LineType = Literal["trendLine", "horizontalLine", "horizontalRay"]
 LINE_TYPES = ["trendLine", "horizontalLine", "horizontalRay"]
 
 
-class LineORM(Base):
-    __tablename__ = "lines"
+class LineORM(BaseDBObject):
+    __tablename__ = "lines"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     symbol_id = Column(
         Integer,
@@ -93,7 +93,7 @@ class LineORM(Base):
         return line
 
     @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs):
+    async def update(cls, db: AsyncSession, id: int | Column[int], **kwargs):
         try:
             # попытаться получить существующую запись
             existing_entry = await db.get(cls, id)
@@ -127,29 +127,6 @@ class LineORM(Base):
             await db.rollback()
             raise
         return existing_entry
-
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int):
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
 
     @classmethod
     async def get_list(

@@ -1,14 +1,14 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, select, asc
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from typing import Self, Sequence
 
-from core.db import Base
+from .base_object import BaseDBObject
 
 
-class TokenORM(Base):
-    __tablename__ = "tokens"
+class TokenORM(BaseDBObject):
+    __tablename__ = "tokens"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), index=True, nullable=False)
     token = Column(String, nullable=False, index=True)
@@ -17,19 +17,6 @@ class TokenORM(Base):
 
     user = relationship('UserORM', back_populates='tokens')
 
-
-    @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
-        try:
-            obj = cls(**kwargs)
-            db.add(obj)
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return obj
-
-
     @classmethod
     async def get_by_token(cls, db: AsyncSession, token: str) -> Self | None:
         """Return token istance by it's value"""
@@ -37,7 +24,6 @@ class TokenORM(Base):
         if not result:
             raise NoResultFound
         return result
-
 
     @classmethod
     async def get_user_tokens(cls, db: AsyncSession, user_id: int) -> Sequence[Self]:

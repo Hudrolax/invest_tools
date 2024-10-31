@@ -4,7 +4,9 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.future import select
 from core.db import sessionmanager
 
-logger = logging.getLogger('wait_for_db')
+logger = logging.getLogger(__name__)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.WARNING)
 
 
 async def wait_for_db():
@@ -17,7 +19,7 @@ async def wait_for_db():
             # Выполняем простой запрос, чтобы проверить жива ли база
             async with sessionmanager.session() as session:
                 await session.execute(select(1))
-                print(f"\n\033[32mDB is ready!\033[0m")
+                print("\n\033[32mDB is ready!\033[0m")
                 return
         except (OperationalError, ConnectionRefusedError) as exc:
             logger.warning(f"DB not ready yet: {exc}")

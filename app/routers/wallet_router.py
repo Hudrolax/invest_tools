@@ -72,7 +72,7 @@ async def put_wallet(
     db: AsyncSession = Depends(get_db),
 ) -> Wallet:
     try:
-        await UserWalletsORM.get(db, user_id=user.id, wallet_id=wallet_id)
+        await UserWalletsORM.get_by_id_and_wallet_id(db, user_id=user.id, wallet_id=wallet_id)
 
         return await WalletORM.update(db=db, id=wallet_id, **data.model_dump(exclude_unset=True))
     except NoResultFound:

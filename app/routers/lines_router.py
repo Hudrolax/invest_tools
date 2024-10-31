@@ -75,8 +75,8 @@ class LineUpdate(BaseModel):
 
 
 router = APIRouter(
-    prefix="/lines",
-    tags=["lines"],
+    prefix="/line",
+    tags=["line"],
     responses={404: {"description": "lines not found"}},
 )
 

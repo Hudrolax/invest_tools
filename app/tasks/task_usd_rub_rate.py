@@ -13,15 +13,14 @@ async def task_get_usd_rub_rate(
     stop_event: asyncio.Event,
     sessionmaker: DatabaseSessionManager,
 ) -> None:
-    print('Run getting usd-rub rate from investing.com')
+    logger.info(f"start task: {logger.name}")
 
+    broker_name = 'investing.com'
+    symbol_name = 'USDRUB'
     while not stop_event.is_set():
-        async with sessionmaker.session() as db:
-            # check / add broker
-            broker_name = 'investing.com'
-            symbol_name = 'USDRUB'
-
-            try:
+        try:
+            async with sessionmaker.session() as db:
+                # check / add broker
                 try:
                     broker = await BrokerORM.get_by_name(db, broker_name)
                 except NoResultFound:
@@ -33,13 +32,13 @@ async def task_get_usd_rub_rate(
                     symbol = await SymbolORM.create(db, name=symbol_name, broker_id=broker.id)
 
                 rate = await get_rate('usd-rub')
-                print(f'usd-rub rate got from investing.com: {rate}')
+                logger.info(f'usd-rub rate got from investing.com: {rate}')
                 if rate:
                     await SymbolORM.update(db, id=symbol.id, rate=rate, last_update_time=datetime.now())
                 else:
                     raise ValueError(f'rate usd-rub from investing.com is None (value: {rate})')
 
-            except Exception as ex:
-                logger.critical(str(ex))
-
-        await asyncio.sleep(60 * 60 * 24)
+            await asyncio.sleep(60 * 60 * 24)
+        except Exception as ex:
+            logger.critical(str(ex))
+            await asyncio.sleep(60)

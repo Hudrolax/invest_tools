@@ -1,6 +1,5 @@
 import asyncio
 from contextlib import asynccontextmanager
-import core.config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.config import Config
@@ -27,7 +26,10 @@ from tasks import (
     task_remove_old_checklist_items,
     task_get_orders,
     task_get_usd_rub_rate,
+    task_get_positions,
+    task_remove_old_orders,
 )
+import core.config
 
 
 @asynccontextmanager
@@ -66,7 +68,7 @@ stop_event = asyncio.Event()
 
 
 async def run_fastapi():
-    config = Config(app=app, host="0.0.0.0", port=9000, lifespan="on")
+    config = Config(app=app, host="0.0.0.0", port=9000, lifespan="on", log_level="warning")
     server = Server(config)
     await server.serve()
 
@@ -79,6 +81,8 @@ async def main() -> None:
         task_remove_old_checklist_items(stop_event, sessionmanager),
         task_get_orders(stop_event, sessionmanager),
         task_get_usd_rub_rate(stop_event, sessionmanager),
+        task_get_positions(stop_event, sessionmanager),
+        task_remove_old_orders(stop_event, sessionmanager),
     )
 
 

@@ -1,25 +1,24 @@
 from sqlalchemy import (Column, Integer, DateTime, DECIMAL, select,
-    asc, ForeignKey, String, BOOLEAN, TEXT)
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+    ForeignKey, String, BOOLEAN, TEXT)
+from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship, joinedload
-from typing import Self, Literal
+from typing import Literal
 from datetime import datetime
 from decimal import Decimal
-
-from core.db import Base
 
 from models.user import UserORM
 from models.symbol import SymbolORM
 from models.broker import BrokerORM
 from models.lines import LineORM
+from .base_object import BaseDBObject
 
 
 Triggers = Literal['above', 'below']
 
 
-class AlertORM(Base):
-    __tablename__ = "alerts"
+class AlertORM(BaseDBObject):
+    __tablename__ = "alerts"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     symbol_id = Column(Integer, ForeignKey('symbols.id', ondelete='CASCADE'), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -71,7 +70,7 @@ class AlertORM(Base):
             raise ValueError("Alert can't be active and is_sent at the same time.")
 
     @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
+    async def create(cls, db: AsyncSession, **kwargs) -> 'AlertORM':
         try:
             try:
                 symbol_name = kwargs.pop('symbol_name')
@@ -106,7 +105,7 @@ class AlertORM(Base):
         return alert
 
     @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
+    async def update(cls, db: AsyncSession, id: int | Column[int], **kwargs) -> 'AlertORM':
         try:
             # попытаться получить существующую запись
             existing_entry = await db.get(cls, id)
@@ -138,30 +137,6 @@ class AlertORM(Base):
         return existing_entry
     
     @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).options(joinedload(AlertORM.symbol)).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
-
-
-    @classmethod
     async def get_filtered_alerts(
         cls,
         db: AsyncSession,
@@ -188,7 +163,7 @@ class AlertORM(Base):
             query = query.filter(AlertORM.is_sent == is_sent)
         if is_triggered is not None:
             # Проверяем наличие или отсутствие поля triggered_at
-            condition = AlertORM.triggered_at != None if is_triggered else AlertORM.triggered_at == None
+            condition = AlertORM.triggered_at.isnot(None) if is_triggered else AlertORM.triggered_at.isnot(None)
             query = query.filter(condition)
 
         result = await db.execute(query)
@@ -215,7 +190,7 @@ class AlertORM(Base):
             query = query.filter(AlertORM.is_sent == is_sent)
         if is_triggered is not None:
             # Проверяем наличие или отсутствие поля triggered_at
-            condition = AlertORM.triggered_at != None if is_triggered else AlertORM.triggered_at == None
+            condition = AlertORM.triggered_at.isnot(None) if is_triggered else AlertORM.triggered_at.isnot(None)
             query = query.filter(condition)
 
         result = await db.execute(query)

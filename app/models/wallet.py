@@ -1,15 +1,15 @@
-from sqlalchemy import Column, Integer, String, select, asc, ForeignKey, DECIMAL, and_, BOOLEAN, inspect
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy import Column, Integer, String, select, asc, ForeignKey, DECIMAL, and_, BOOLEAN
+from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from typing import Self
 
-from core.db import Base
+from .base_object import BaseDBObject
 from models.user_wallets import UserWalletsORM
 
 
-class WalletORM(Base):
-    __tablename__ = "wallets"
+class WalletORM(BaseDBObject):
+    __tablename__ = "wallets"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     currency_id = Column(Integer, ForeignKey('currencies.id', ondelete='CASCADE'), nullable=False)
@@ -24,13 +24,6 @@ class WalletORM(Base):
     def __str__(self) -> str:
         return f'{self.name}'
     
-    def dict(self):
-        """Преобразует экземпляр SQLAlchemy модели в словарь, исключая служебные поля."""
-        cls_ = type(self)
-        mapper = inspect(cls_)
-        # Получаем только те атрибуты, которые связаны с колонками таблицы
-        return {column.key: getattr(self, column.key) for column in mapper.attrs}
-
     @classmethod
     async def create(cls, db: AsyncSession, **kwargs) -> Self:
         try:
@@ -50,41 +43,7 @@ class WalletORM(Base):
         return transaction
 
     @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-            
-            # обновление полей записи
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return existing_entry
-    
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
+    async def get_by_id_and_wallet_id(cls, db: AsyncSession, id: int) -> Self:
         result = (await db.scalars(select(cls).where(cls.id == id))).first()
         if not result:
             raise NoResultFound

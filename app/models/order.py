@@ -9,22 +9,22 @@ from sqlalchemy import (
     TIMESTAMP,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Self
 from decimal import Decimal
 
-from core.db import Base
+from .base_object import BaseDBObject
 
 
-class OrderORM(Base):
-    __tablename__ = "orders"
+class OrderORM(BaseDBObject):
+    __tablename__ = "orders"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False)
-    symbol_id = Column(Integer, ForeignKey("symbols.id", ondelete="CASCADE"), nullable=False)
+    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False, index=True)
+    symbol_id = Column(Integer, ForeignKey("symbols.id", ondelete="CASCADE"), nullable=False, index=True)
     broker_order_id = Column(String, nullable=False, index=True)
     strategy_id = Column(String, nullable=True, index=True)
     price = Column(DECIMAL(precision=20, scale=8), nullable=False)
@@ -55,56 +55,11 @@ class OrderORM(Base):
     user = relationship("UserORM", back_populates="orders")
 
     def __str__(self) -> str:
-        return f"user {self.user_id} broker {self.broker_id} {self.order_status} {self.side} {self.order_type} price {self.price} qty {self.qty}"
+        return f"order: user {self.user_id} broker {self.broker_id} {self.order_status} {self.side} {self.order_type} price {self.price} qty {self.qty}"
 
     @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
-        try:
-            transaction = cls(**kwargs)
-            db.add(transaction)
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return transaction
-
-    @classmethod
-    async def update(cls, db: AsyncSession, id: int | Column[int], **kwargs) -> Self:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # обновление полей записи
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return existing_entry
-
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get_by_id(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
+    async def get_by_id_and_user(cls, db: AsyncSession, id: int | Column[int], user_id: int | Column[int]) -> Self:
+        result = (await db.scalars(select(cls).where((cls.id == id) & (cls.user_id == user_id)))).first()
         if not result:
             raise NoResultFound
         return result

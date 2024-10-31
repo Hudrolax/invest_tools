@@ -30,9 +30,9 @@ async def test_create_alert(client: AsyncClient, db_session: AsyncSession):
     result = response.json() 
     assert result['price'] == payload['price']
     assert result['trigger'] == payload['trigger']
-    assert result['triggered_at'] == None
-    assert result['is_active'] == True
-    assert result['is_sent'] == False
+    assert result['triggered_at'] is None
+    assert result['is_active']
+    assert not result['is_sent']
 
 
 @pytest.mark.asyncio
@@ -54,8 +54,8 @@ async def test_create_alert_via_telegram_api(client: AsyncClient, db_session: As
     assert result['price'] == payload['price']
     assert result['trigger'] == payload['trigger']
     assert result['triggered_at'] == None
-    assert result['is_active'] == True
-    assert result['is_sent'] == False
+    assert result['is_active']
+    assert not result['is_sent']
 
 @pytest.mark.asyncio
 async def test_create_alert_wrong_broker(client: AsyncClient, db_session: AsyncSession):
@@ -89,7 +89,7 @@ async def test_create_alert_wrong_price(client: AsyncClient, db_session: AsyncSe
     assert response.status_code == 422
 
     broker = (await BrokerORM.get_all(db_session))[0]
-    user, token = await make_user(db_session, username='user2', email='user2@example.com', telegram_id=1234)
+    _, token = await make_user(db_session, username='user2', email='user2@example.com', telegram_id=1234)
     headers: dict[str, str] = dict(TOKEN=token.token) # type: ignore
     payload = dict(
         symbol_name='BTCUSDT',
@@ -104,7 +104,7 @@ async def test_create_alert_wrong_price(client: AsyncClient, db_session: AsyncSe
 @pytest.mark.asyncio
 async def test_create_alert_wrong_triger(client: AsyncClient, db_session: AsyncSession):
     broker = (await BrokerORM.get_all(db_session))[0]
-    user, token = await make_user(db_session)
+    _, token = await make_user(db_session)
     headers: dict[str, str] = dict(TOKEN=token.token) # type: ignore
 
     # wrong trigger
@@ -165,17 +165,17 @@ async def test_read_alert(client: AsyncClient, db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_read_alerts(client: AsyncClient, db_session: AsyncSession):
     broker = (await BrokerORM.get_all(db_session))[0]
-    response = await client.get(f"/alerts/")
+    response = await client.get("/alerts/")
     assert response.status_code == 401
 
     user, token = await make_user(db_session)
-    user2, token2 = await make_user(db_session, username='user2', telegram_id=321, email='dd@ff.com', token='321')
+    user2, _ = await make_user(db_session, username='user2', telegram_id=321, email='dd@ff.com', token='321')
     alert1 = await new_alert(db_session, user_id=user.id, broker_name=broker.name, symbol_name='BTCUSDT', price=Decimal('123')) # type: ignore
     alert2 = await new_alert(db_session, user_id=user.id, broker_name=broker.name, symbol_name='BTCUSDT', price=Decimal('999')) # type: ignore
     alert3 = await new_alert(db_session, user_id=user2.id, broker_name=broker.name, symbol_name='BTCUSDT', price=Decimal('999')) # type: ignore
 
     headers: dict[str, str] = dict(TOKEN=token.token) # type: ignore
-    response = await client.get(f"/alerts/", headers=headers)
+    response = await client.get("/alerts/", headers=headers)
     assert response.status_code == 200
     result = response.json()
     for i in range(1):
@@ -189,7 +189,7 @@ async def test_read_alerts(client: AsyncClient, db_session: AsyncSession):
                 assert result[i][key] == val
 
     await alert2.update(db_session, id=alert2.id, is_sent=True, is_active=False, triggered_at=datetime.now()) # type: ignore
-    response = await client.get(f"/alerts/", headers=headers, params=dict(is_sent=True))
+    response = await client.get("/alerts/", headers=headers, params=dict(is_sent=True))
     assert response.status_code == 200
     result = response.json()
     assert isinstance(result, list)
@@ -200,7 +200,7 @@ async def test_read_alerts(client: AsyncClient, db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_read_alerts_via_telegram_api(client: AsyncClient, db_session: AsyncSession):
     broker = (await BrokerORM.get_all(db_session))[0]
-    response = await client.get(f"/alerts/telegram_bot_api/")
+    response = await client.get("/alerts/telegram_bot_api/")
     assert response.status_code == 401
 
     user, token = await make_user(db_session)
@@ -217,7 +217,7 @@ async def test_read_alerts_via_telegram_api(client: AsyncClient, db_session: Asy
     )
 
     headers: dict[str, str] = {'TBOT-SECRET': TELEGRAM_BOT_SECRET} # type: ignore
-    response = await client.get(f"/alerts/telegram_bot_api/", headers=headers, params=dict(is_triggered=True))
+    response = await client.get("/alerts/telegram_bot_api/", headers=headers, params=dict(is_triggered=True))
     assert response.status_code == 200
     result = response.json()
     assert isinstance(result, list)
@@ -237,7 +237,7 @@ async def test_delete_alert(client: AsyncClient, db_session: AsyncSession):
     headers: dict[str, str] = dict(TOKEN=token.token) # type: ignore
     response = await client.delete(f"/alerts/{alert.id}", headers=headers)
     assert response.status_code == 200
-    assert response.json() == True
+    assert response.json()
 
     response = await client.delete(f"/alerts/{alert.id}", headers=headers)
     assert response.status_code == 404

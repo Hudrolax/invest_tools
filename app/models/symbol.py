@@ -16,12 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Self, Sequence
 from decimal import Decimal
 
-from core.db import Base
+from .base_object import BaseDBObject
 from models.broker import BrokerORM
 
 
-class SymbolORM(Base):
-    __tablename__ = "symbols"
+class SymbolORM(BaseDBObject):
+    __tablename__ = "symbols"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False)
@@ -33,6 +33,7 @@ class SymbolORM(Base):
     alerts = relationship("AlertORM", back_populates="symbol", cascade="all, delete")
     lines = relationship("LineORM", back_populates="symbol", cascade="all, delete")
     orders = relationship("OrderORM", back_populates="symbol", cascade="all, delete")
+    positions = relationship("PositionORM", back_populates="symbol", cascade="all, delete")
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -40,78 +41,27 @@ class SymbolORM(Base):
     async def delete_self(self, db: AsyncSession) -> bool:
         return await SymbolORM.delete(db, self.id)  # type: ignore
 
-    @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
-        try:
-            transaction = cls(**kwargs)
-            db.add(transaction)
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return transaction
 
     @classmethod
-    async def update(cls, db: AsyncSession, id: int | Column[int], **kwargs) -> Self:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # обновление полей записи
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return existing_entry
-
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
-
-    @classmethod
-    async def get_by_name(cls, db: AsyncSession, name: str) -> Self:
+    async def get_by_name(cls, db: AsyncSession, name: str) -> 'SymbolORM':
         result = (await db.scalars(select(cls).where(cls.name == name))).first()
         if not result:
-            raise NoResultFound
+            raise NoResultFound(f'symbol with name {name} not found')
         return result
 
     @classmethod
-    async def get_by_name_and_broker(cls, db: AsyncSession, name: str, broker_name: str) -> Self:
+    async def get_by_name_and_broker(cls, db: AsyncSession, name: str, broker_name: str | Column[str]) -> 'SymbolORM':
         result = (
             await db.scalars(
                 select(cls).join(BrokerORM, BrokerORM.name == broker_name).where(cls.name == name)
             )
         ).first()
         if not result:
-            raise NoResultFound
+            raise NoResultFound(f'symbol with name {name} not found for broker {broker_name}')
         return result
 
     @classmethod
-    async def get_or_create(cls, db: AsyncSession, name: str, broker_id: int) -> Self:
+    async def get_or_create(cls, db: AsyncSession, name: str, broker_id: int) -> 'SymbolORM':
         result = (
             await db.scalars(select(cls).where(cls.name == name, cls.broker_id == broker_id))
         ).first()
@@ -120,7 +70,7 @@ class SymbolORM(Base):
         return result
 
     @classmethod
-    async def get_all(cls, db: AsyncSession) -> Sequence[Self]:
+    async def get_all(cls, db: AsyncSession) -> Sequence['SymbolORM']:
         result = await db.execute(
             select(cls).options(joinedload(cls.broker)).order_by(cls.id.asc())
         )

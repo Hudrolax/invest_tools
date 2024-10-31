@@ -2,17 +2,17 @@ from sqlalchemy import Column, Integer, BIGINT, BOOLEAN, String, select, asc, Fo
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
-from typing import Self, Sequence, Any
+from typing import Self, Sequence
 from passlib.context import CryptContext
 
-from core.db import Base
+from .base_object import BaseDBObject
 from models.token import TokenORM
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-class UserORM(Base):
-    __tablename__ = "users"
+class UserORM(BaseDBObject):
+    __tablename__ = "users"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=True, default='user')
@@ -31,6 +31,7 @@ class UserORM(Base):
     checklist = relationship('ChecklistORM', back_populates='user', cascade="all, delete")
     lines = relationship('LineORM', back_populates='user', cascade="all, delete")
     orders = relationship('OrderORM', back_populates='user', cascade="all, delete")
+    positions = relationship('PositionORM', back_populates='user', cascade="all, delete")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -45,10 +46,6 @@ class UserORM(Base):
         self.hashed_password = pwd_context.hash(password)
         await db.flush()
         return True
-
-    
-    def to_dict(self) -> dict[str, Any]:
-        return {key: value for key, value in self.__dict__.items() if not key.startswith('_')}
 
     @classmethod
     async def validate(cls, user: 'UserORM.instance', db: AsyncSession) -> None:
@@ -94,46 +91,6 @@ class UserORM(Base):
             await db.rollback()
             raise
         return obj
-
-    @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
-        try:
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-            
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-            await cls.validate(existing_entry, db)
-        except (IntegrityError, ValueError):
-            await db.rollback()
-            raise
-        return existing_entry
-    
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, ValueError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self | None:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
 
     @classmethod
     async def get_all(cls, db: AsyncSession) -> Sequence[Self]:

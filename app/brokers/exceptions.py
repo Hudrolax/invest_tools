@@ -10,5 +10,8 @@ class GetOrdersError(TickHandleError):
     pass
 
 
+class GetPositionsError(TickHandleError):
+    pass
+
 class CloseOrderError(TickHandleError):
     pass

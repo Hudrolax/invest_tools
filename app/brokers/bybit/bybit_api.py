@@ -1,15 +1,23 @@
 import logging
-from brokers.bybit import ByitMarketType, OrderFilter, OpenOnly, OrderStatus
-from utils import check_uppercase
-from ..exceptions import GetOrdersError
+from brokers.bybit import BybitBroker, ByitMarketType, OrderFilter, OpenOnly, OrderStatus
+from ..exceptions import GetOrdersError, CloseOrderError, GetPositionsError
 from ..requests import authorized_request
 
 
 logger = logging.getLogger("bybit-api")
 
 
+def convert_broker_to_category(broker: BybitBroker) -> ByitMarketType:
+    if broker == "Bybit-spot":
+        return "spot"
+    elif broker == "Bybit_perpetual":
+        return "linear"
+    elif broker == "Bybit-inverse":
+        return "inverse"
+
+
 async def get_orders(
-    category: ByitMarketType,
+    broker: BybitBroker,
     symbol: str | None = None,
     openOnly: OpenOnly | None = None,
     orderFilter: OrderFilter | None = None,
@@ -18,8 +26,8 @@ async def get_orders(
     limit: int | None = 50,
 ) -> list:
     params = {
-        "category": category,
-        **({"symbol": symbol} if symbol else {}),
+        "category": convert_broker_to_category(broker),
+        **({"symbol": symbol.upper()} if symbol else {}),
         **({"openOnly": openOnly} if openOnly is not None else {}),
         **({"orderFilter": orderFilter} if orderFilter is not None else {}),
         **({"orderId": orderId} if orderId is not None else {}),
@@ -27,12 +35,11 @@ async def get_orders(
         **({"limit": limit} if limit else {}),
     }
 
-    if symbol:
-        check_uppercase(symbol)
+    endpoint="/order/realtime"
 
     response = await authorized_request(
-        broker="Bybit-inverse",
-        endpoint="/order/realtime",
+        broker=broker,
+        endpoint=endpoint,
         http_method="GET",
         params=params,
         ErrorClass=GetOrdersError,
@@ -44,8 +51,8 @@ async def get_orders(
         while response["result"].get("nextPageCursor"):
             params["cursor"] = response["result"].get("nextPageCursor")
             response = await authorized_request(
-                broker="Bybit-inverse",
-                endpoint="/order/realtime",
+                broker=broker,
+                endpoint=endpoint,
                 http_method="GET",
                 params=params,
                 ErrorClass=GetOrdersError,
@@ -61,7 +68,7 @@ async def get_orders(
 
 
 async def get_order_history(
-    category: ByitMarketType,
+    broker: BybitBroker,
     symbol: str | None = None,
     orderFilter: OrderFilter | None = None,
     orderStatus: OrderStatus | None = None,
@@ -72,8 +79,8 @@ async def get_order_history(
     limit: int | None = 50,
 ) -> list:
     params = {
-        "category": category,
-        **({"symbol": symbol} if symbol else {}),
+        "category": convert_broker_to_category(broker),
+        **({"symbol": symbol.upper()} if symbol else {}),
         **({"orderId": orderId} if orderId is not None else {}),
         **({"orderLinkId": orderLinkId} if orderLinkId is not None else {}),
         **({"orderFilter": orderFilter} if orderFilter is not None else {}),
@@ -83,12 +90,11 @@ async def get_order_history(
         **({"limit": limit} if limit else {}),
     }
 
-    if symbol:
-        check_uppercase(symbol)
+    endpoint="/order/history"
 
     response = await authorized_request(
-        broker="Bybit-inverse",
-        endpoint="/order/history",
+        broker=broker,
+        endpoint=endpoint,
         http_method="GET",
         params=params,
         ErrorClass=GetOrdersError,
@@ -100,8 +106,8 @@ async def get_order_history(
         while response["result"].get("nextPageCursor"):
             params["cursor"] = response["result"].get("nextPageCursor")
             response = await authorized_request(
-                broker="Bybit-inverse",
-                endpoint="/order/history",
+                broker=broker,
+                endpoint=endpoint,
                 http_method="GET",
                 params=params,
                 ErrorClass=GetOrdersError,
@@ -112,3 +118,71 @@ async def get_order_history(
         return orders
     else:
         raise GetOrdersError(response)
+
+
+async def cancel_order(
+    broker: BybitBroker,
+    symbol: str,
+    orderId: str | None = None,
+    orderLinkId: str | None = None,
+    orderFilter: OrderFilter | None = None,
+) -> bool:
+    params = {
+        "category": convert_broker_to_category(broker),
+        **({"symbol": symbol.upper()} if symbol else {}),
+        **({"orderId": orderId} if orderId is not None else {}),
+        **({"orderLinkId": orderLinkId} if orderLinkId is not None else {}),
+        **({"orderFilter": orderFilter} if orderFilter is not None else {}),
+    }
+
+    response = await authorized_request(
+        broker=broker,
+        endpoint="/order/cancel",
+        http_method="POST",
+        params=params,
+        ErrorClass=GetOrdersError,
+        logger=logger,
+    )
+
+    if response.get("retMsg") == "OK":
+        return True
+    else:
+        raise CloseOrderError(response)
+
+
+async def get_position_info(
+    broker: BybitBroker,
+    symbol: str | None = None,
+) -> list[dict]:
+    params = {
+        "category": convert_broker_to_category(broker),
+        **({"symbol": symbol.upper()} if symbol else {}),
+    }
+    endpoint = '/position/list'
+
+    response = await authorized_request(
+        broker=broker,
+        endpoint=endpoint,
+        http_method="GET",
+        params=params,
+        ErrorClass=GetOrdersError,
+        logger=logger,
+    )
+
+    if response.get("retMsg") == "OK":
+        positions = response["result"]["list"]
+        while response["result"].get("nextPageCursor"):
+            params["cursor"] = response["result"].get("nextPageCursor")
+            response = await authorized_request(
+                broker=broker,
+                endpoint=endpoint,
+                http_method="GET",
+                params=params,
+                ErrorClass=GetOrdersError,
+                logger=logger,
+            )
+            positions = positions + response["result"]["list"]
+
+        return positions
+    else:
+        raise GetPositionsError(response)

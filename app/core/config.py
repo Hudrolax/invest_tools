@@ -4,12 +4,23 @@ import logging
 from logging.handlers import RotatingFileHandler
 from utils import get_env_value
 
+# logging.disable(logging.WARNING)
+DEBUG = os.getenv('DEBUG')
 
-logging.disable(logging.WARNING)
+LOG_LEVEL = logging.INFO
+if DEBUG == 'true': 
+    print('DEBUG ON')
+    LOG_LEVEL = logging.DEBUG
+
+muted_loggers = ['sqlalchemy', 'alembic', 'sqlalchemy.engine.Engine', 'alembic.runtime.migration']
+
+for muted_name in muted_loggers:
+    logger = logging.getLogger(muted_name)
+    logger.setLevel(logging.CRITICAL)
+    logger.disabled = True
 
 LOG_FORMAT = '%(name)s (%(levelname)s) %(asctime)s: %(message)s'
 DATE_FORMAT = '%d-%m-%y %H:%M:%S'
-LOG_LEVEL = logging.WARNING
 
 LOG_TO_FILE = True if os.getenv('LOG_TO_FILE') == 'true' else False
 
@@ -92,9 +103,11 @@ BYBIT_API_SECRET = get_env_value('BYBIT_API_SECRET')
 BYBIT_API_ENDPOINT = 'https://api.bybit.com/v5'
 
 # Bybit WSS endpoints
-BYBIT_WSS_SPOT = 'wss://stream.bybit.com/v5/public/spot'
-BYBIT_WSS_PERPETUAL = 'wss://stream.bybit.com/v5/public/linear'
-BYBIT_WSS_INVERSE = 'wss://stream.bybit.com/v5/public/inverse'
+BYBIT_PUBLIC_WSS_SPOT = 'wss://stream.bybit.com/v5/public/spot'
+BYBIT_PUBLIC_WSS_PERPETUAL = 'wss://stream.bybit.com/v5/public/linear'
+BYBIT_PUBLIC_WSS_INVERSE = 'wss://stream.bybit.com/v5/public/inverse'
+BYBIT_PRIVATE_WSS = 'wss://stream.bybit.com/v5/private'
+BYBIT_TRADE_WSS = 'wss://stream.bybit.com/v5/trade'
 
 # OpenAI API key
 OPENAI_API_KEY = get_env_value('OPENAI_API_KEY')

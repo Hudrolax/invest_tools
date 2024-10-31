@@ -1,17 +1,16 @@
 from sqlalchemy import Column, Integer, String, select, asc
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
-from typing import Self, Union
 
-from core.db import Base
 from brokers.binance import binance_symbols
 from models.symbol import SymbolORM
 from models.broker import BrokerORM
 
+from .base_object import BaseDBObject
 
-class CurrencyORM(Base):
-    __tablename__ = "currencies"
+class CurrencyORM(BaseDBObject):
+    __tablename__ = "currencies"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
 
@@ -21,7 +20,7 @@ class CurrencyORM(Base):
         return f'{self.name}'
 
     @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
+    async def create(cls, db: AsyncSession, **kwargs) -> 'CurrencyORM':
         try:
             transaction = cls(**kwargs)
             db.add(transaction)
@@ -43,50 +42,6 @@ class CurrencyORM(Base):
         return transaction
 
     @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-            
-            # обновление полей записи
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return existing_entry
-    
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, **kwargs) -> Union[Self, None]:
-        result = await db.execute(select(cls).filter_by(**kwargs))
-        existing = result.scalars().first()
-        
-        if existing:
-            return existing
-        else:
-            return None
-
-    @classmethod
-    async def get_all(cls, db: AsyncSession) -> list[Self]:
+    async def get_all(cls, db: AsyncSession) -> list['CurrencyORM']:
         result = await db.execute(select(cls).order_by(asc(cls.id)))  # сортировка по возрастанию id
         return list(result.scalars().all())

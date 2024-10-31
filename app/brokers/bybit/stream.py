@@ -4,16 +4,22 @@ import asyncio
 import json
 from typing import Callable
 import logging
+import hmac
 import websockets
 from datetime import datetime
+import time
 
 from utils import async_traceback_errors
-from brokers.bybit import BybitBroker, BybitTimeframe, BybitStreamType
+from brokers.bybit import BybitBroker, BybitTimeframe, BybitStreamType, BYBIT_BROKER_MARKET_TYPE
 
 from core.config import (
-    BYBIT_WSS_SPOT,
-    BYBIT_WSS_PERPETUAL,
-    BYBIT_WSS_INVERSE,
+    BYBIT_PUBLIC_WSS_SPOT,
+    BYBIT_PUBLIC_WSS_PERPETUAL,
+    BYBIT_PUBLIC_WSS_INVERSE,
+    BYBIT_API_KEY,
+    BYBIT_API_SECRET,
+    BYBIT_PRIVATE_WSS,
+    BYBIT_TRADE_WSS,
 )
 
 
@@ -24,26 +30,28 @@ logger = logging.getLogger("bybit_stream")
 async def ticker_stream(
     handler: Callable,
     broker: BybitBroker,
-    symbol: str,
     stop_event: asyncio.Event,
     stream_type: BybitStreamType,
+    symbol: str | None = None,
     timeframe: BybitTimeframe | None = None,
 ):
     """The function runs websocket market stream
     Args:
         handler (Callable): handler func for handle the data
-        symbol (str): Symbol name.
+        symbol (str | None): Symbol name.
         timeframe (BybitTimeframe | None): Kline data timeframe. Default None.
         stop_event (asyncio.Event): stop event
     """
 
     # choose broker
-    if broker == "Bybit-spot":
-        wss_base = BYBIT_WSS_SPOT
+    if stream_type in ["position", "order"]:
+        wss_base = BYBIT_PRIVATE_WSS
+    elif broker == "Bybit-spot":
+        wss_base = BYBIT_PUBLIC_WSS_SPOT
     elif broker == "Bybit_perpetual":
-        wss_base = BYBIT_WSS_PERPETUAL
+        wss_base = BYBIT_PUBLIC_WSS_PERPETUAL
     elif broker == "Bybit-inverse":
-        wss_base = BYBIT_WSS_INVERSE
+        wss_base = BYBIT_PUBLIC_WSS_INVERSE
     else:
         raise ValueError(f"Wrong broker {broker}")
 
@@ -51,20 +59,42 @@ async def ticker_stream(
         try:
             async with websockets.connect(wss_base) as ws:
                 # Подписываемся на поток
-                if stream_type == 'Kline':
-                    args = [f'kline.{timeframe}.{symbol.upper()}']
-                elif stream_type == 'Ticker':
-                    args = [f'tickers.{symbol.upper()}']
-                elif stream_type == 'Trade':
-                    args = [f'publicTrade.{symbol.upper()}']
-                else:
-                    raise ValueError(f"Wrong stream type {stream_type}")
+                if stream_type in ["position", "order"]:
+                    expires = int((time.time() + 1) * 1000)
+                    signature = str(
+                        hmac.new(
+                            bytes(BYBIT_API_SECRET, "utf-8"),
+                            bytes(f"GET/realtime{expires}", "utf-8"),
+                            digestmod="sha256",
+                        ).hexdigest()
+                    )
+                    auth_message = {"op": "auth", "args": [BYBIT_API_KEY, expires, signature]}
+                    await ws.send(json.dumps(auth_message))
+                    data = await asyncio.wait_for(ws.recv(), timeout=30)
+                    data = json.loads(data)
+                    if not (data.get("success") and data.get('op') == 'auth'):
+                        raise RuntimeError(f'Не смог авторизоваться для подключения к потоку:\n{data}')
 
-                await ws.send(json.dumps({
-                    'op': 'subscribe',
-                    'args': args
-                }))
-                print(f"Подписались на поток {broker} {stream_type} {symbol}")
+                    args = [f"{stream_type}.{BYBIT_BROKER_MARKET_TYPE[broker]}"]
+                else:
+                    if stream_type == "Kline" and symbol:
+                        args = [f"kline.{timeframe}.{symbol.upper()}"]
+                    elif stream_type == "Ticker" and symbol:
+                        args = [f"tickers.{symbol.upper()}"]
+                    elif stream_type == "Trade" and symbol:
+                        args = [f"publicTrade.{symbol.upper()}"]
+                    else:
+                        raise ValueError(f"Wrong stream type {stream_type} or symbol is None (symbol: {symbol})")
+
+                await ws.send(json.dumps({"op": "subscribe", "args": args}))
+                data = await asyncio.wait_for(ws.recv(), timeout=30)
+                data = json.loads(data)
+                if data.get("success") is not None:
+                    symbol_text = f" {symbol}" if symbol else ""
+                    if data["success"]:
+                        print(f"Подписались на поток {broker} {stream_type}{symbol_text}")
+                    else:
+                        print(f"Ошибка подписи на поток {broker} {stream_type}{symbol_text}:\n{data}")
 
                 ping_time = datetime.now()
                 while not stop_event.is_set():
@@ -78,11 +108,13 @@ async def ticker_stream(
                         time_delta = (datetime.now() - ping_time).total_seconds()
                         if time_delta >= 30:
                             # Отправляем пинг, чтобы поддержать соединение
-                            await ws.send(json.dumps({'op': 'ping'}))
+                            await ws.send(json.dumps({"op": "ping"}))
                             ping_time = datetime.now()
 
-                    except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
-                        print("Соединение потеряно, попытка переподключения...")
+                    except asyncio.TimeoutError as ex:
+                        continue
+                    except websockets.exceptions.ConnectionClosed as ex:
+                        logger.error(f"Соединение потеряно (Разрыв соединения) {ex}, попытка переподключения...")
                         break  # Выходим из цикла для переподключения
 
         except (

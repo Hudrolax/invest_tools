@@ -2,10 +2,18 @@ from typing import Literal
 
 BybitBroker = Literal["Bybit-spot", "Bybit_perpetual", "Bybit-inverse"]
 BYBIT_BROKERS = ["Bybit-spot", "Bybit_perpetual", "Bybit-inverse"]
-BybitTimeframe = Literal[
-    "1", "3", "5", "15", "30", "60", "120", "240", "360", "720", "D", "W", "M"
-]
-BybitStreamType = Literal["Ticker", "Kline", "Trade"]
+BybitTimeframe = Literal["1", "3", "5", "15", "30", "60", "120", "240", "360", "720", "D", "W", "M"]
+BybitStreamType = Literal["Ticker", "Kline", "Trade", "position", "order"]
+BYBIT_BROKER_MARKET_TYPE = {
+    "Bybit-spot": "spot",
+    "Bybit_perpetual": "linear",
+    "Bybit-inverse": "inverse",
+}
+BYBIT_MARKET_TYPE_BROKER = {
+    "spot": "Bybit-spot",
+    "linear": "Bybit_perpetual",
+    "inverse": "Bybit-inverse",
+}
 
 ByitMarketType = Literal["linear", "inverse", "spot", "option"]
 OrderFilter = Literal[

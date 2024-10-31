@@ -14,6 +14,8 @@ async def task_remove_old_checklist_items(
     sessionmaker: DatabaseSessionManager,
 ) -> None:
     init = True
+    logger = logging.getLogger('task_remove_old_checklist_items')
+    logger.info(f'start task: {logger.name}')
     while not stop_event.is_set():
         async with sessionmaker.session() as db:
             try:

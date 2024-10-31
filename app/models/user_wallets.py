@@ -4,11 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from typing import Self, Union
 
-from core.db import Base
+from .base_object import BaseDBObject
 
 
-class UserWalletsORM(Base):
-    __tablename__ = "user_wallets"
+class UserWalletsORM(BaseDBObject):
+    __tablename__ = "user_wallets"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     wallet_id = Column(Integer, ForeignKey('wallets.id', ondelete='CASCADE'), nullable=False)
@@ -23,52 +23,7 @@ class UserWalletsORM(Base):
         return f'user_id {self.user_id} wallet_id {self.wallet_id}'
 
     @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
-        try:
-            transaction = cls(**kwargs)
-            db.add(transaction)
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return transaction
-
-    @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # обновление полей записи
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return existing_entry
-
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, raise_exeption: bool = True, **kwargs) -> Union[Self, None]:
+    async def get_by_id_and_wallet_id(cls, db: AsyncSession, raise_exeption: bool = True, **kwargs) -> Union[Self, None]:
         result = await db.execute(select(cls).filter_by(**kwargs))
         existing = result.scalars().first()
         

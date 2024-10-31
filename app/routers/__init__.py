@@ -111,4 +111,16 @@ def format_decimal(value):
     if value is not None:
         # Преобразование в строку с удалением незначащих нулей
         return format(value, "f").rstrip("0").rstrip(".")
-    return None
+    return "0"
+
+
+def format_date(value):
+    """Форматирует даты для сериализации."""
+    if value is not None:
+        if isinstance(value, datetime):
+            return int(value.timestamp())
+        elif isinstance(value, int):
+            return value
+        else:
+            raise ValueError(f"Wrong type of value 'date'. Type '{type(value)}'")
+    return value

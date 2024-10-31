@@ -20,9 +20,9 @@ logger = logging.getLogger('binance_stream')
 async def market_stream(
     handler: Callable,
     broker: BinanceBroker,
-    symbol: str,
     stop_event: asyncio.Event,
     stream_type: BinanceMarketStreamType,
+    symbol: str | None = None,
     timeframe: BinanceTimeframe | None = None,
 ):
     """ The function runs websocket market stream
@@ -33,7 +33,9 @@ async def market_stream(
         stream_type: BinanceMarketStreamType: Stream type.
         stop_event (asyncio.Event): stop event
     """
-    symbol_name = symbol.lower()
+    symbol_name: str | None = None
+    if symbol:
+        symbol_name = symbol.lower()
 
     # choose broker
     if broker == 'Binance-spot':
@@ -46,9 +48,9 @@ async def market_stream(
         raise ValueError(f'Wrong broker {broker}')
 
     # choose stream type
-    if stream_type == 'kline':
+    if stream_type == 'kline' and symbol_name:
         url = f'{wss_base}/ws/{symbol_name}@kline_{timeframe}'
-    elif stream_type in ['ticker', 'trade']:
+    elif stream_type in ['ticker', 'trade'] and symbol_name:
         url = f'{wss_base}/ws/{symbol_name}@{stream_type}'
     else:
         raise ValueError(f'Wrong stream type: {stream_type}')

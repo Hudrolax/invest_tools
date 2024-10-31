@@ -1,15 +1,14 @@
 from sqlalchemy import Column, Integer, String, select, asc, BOOLEAN, and_, DateTime, ForeignKey
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
-from typing import Self
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
-from core.db import Base
+from .base_object import BaseDBObject
 
 
-class ChecklistORM(Base):
-    __tablename__ = "checklist"
+class ChecklistORM(BaseDBObject):
+    __tablename__ = "checklist"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     text = Column(String, nullable=False)
     checked = Column(BOOLEAN, nullable=False, default=False)
@@ -22,10 +21,10 @@ class ChecklistORM(Base):
         return f'{self.name}'
 
     @classmethod
-    async def create(cls, db: AsyncSession, **kwargs) -> Self:
+    async def create(cls, db: AsyncSession, **kwargs) -> 'ChecklistORM':
         try:
             transaction = cls(**kwargs)
-            transaction.date = datetime.now(UTC)
+            transaction.date = datetime.now(timezone.utc)
             transaction.checked = False
             db.add(transaction)
             await db.flush()
@@ -36,48 +35,7 @@ class ChecklistORM(Base):
         return transaction
 
     @classmethod
-    async def update(cls, db: AsyncSession, id: int, **kwargs) -> Self:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-            
-            # обновление полей записи
-            for attr, value in kwargs.items():
-                setattr(existing_entry, attr, value)
-
-            await db.flush()
-        except IntegrityError:
-            await db.rollback()
-            raise
-        return existing_entry
-    
-    @classmethod
-    async def delete(cls, db: AsyncSession, id: int | Column[int]) -> bool:
-        try:
-            # попытаться получить существующую запись
-            existing_entry = await db.get(cls, id)
-            if not existing_entry:
-                raise NoResultFound
-
-            # удалить запись из БД
-            await db.delete(existing_entry)
-            await db.flush()
-            return True
-        except (IntegrityError, OperationalError):
-            await db.rollback()
-            raise
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: int) -> Self:
-        result = (await db.scalars(select(cls).where(cls.id == id))).first()
-        if not result:
-            raise NoResultFound
-        return result
-
-    @classmethod
-    async def get_list(cls, db: AsyncSession, **filters) -> list[Self]:
+    async def get_list(cls, db: AsyncSession, **filters) -> list['ChecklistORM']:
         """Returns filtered list of instances."""
         query = select(cls).order_by(asc(cls.id))
 
@@ -98,7 +56,7 @@ class ChecklistORM(Base):
         return list(result.scalars().all())
     
     @classmethod
-    async def get_items_after_date(cls, db: AsyncSession, date: datetime) -> list:
+    async def get_items_after_date(cls, db: AsyncSession, date: datetime) -> list['ChecklistORM']:
         """
         Возвращает список элементов, у которых значение атрибута 'date' больше указанной даты.
         """

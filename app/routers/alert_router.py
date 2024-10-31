@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy.orm import attributes as orm_attributes
+from sqlalchemy import select
 from fastapi import APIRouter, Depends, HTTPException
 from decimal import Decimal
 from datetime import datetime
@@ -163,13 +164,20 @@ async def get_alert(
     db: AsyncSession = Depends(get_db),
 ) -> Alert:
     try:
-        alert = await AlertORM.get(db, id=alert_id)
-        if alert.user_id != user.id: # type: ignore
-            raise HTTPException(401, 'Wrong TOKEN')
-
-        alert_dict = orm_attributes.instance_dict(alert)
-        alert_dict['symbol_name'] = alert.symbol.name
-
+        query = (
+            select(
+                AlertORM,
+                SymbolORM.name.label('symbol_name'),
+            )
+            .select_from(AlertORM)
+            .join(SymbolORM, SymbolORM.id == AlertORM.symbol_id)
+            .where(
+                AlertORM.id == alert_id
+            )
+        )
+        result = (await db.execute(query)).mappings().one()
+        alert_dict = {k: v for k, v in result['AlertORM'].__dict__.items() if not k.startswith('_')}
+        alert_dict['symbol_name'] = result['symbol_name']
         return Alert(**alert_dict)
     except NoResultFound:
         raise HTTPException(404, f'Alert with id {alert_id} not found.')

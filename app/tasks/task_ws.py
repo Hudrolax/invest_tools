@@ -1,4 +1,5 @@
-# This module watching for symbols on DB and runs/stops streams for getting klines
+# This module watching for symbols on DB and runs/stops streams for getting
+# klines
 import asyncio
 from sqlalchemy import select, not_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,22 +37,18 @@ class StreamBase:
     def __init__(
         self,
         broker: BinanceBroker | BybitBroker,
-        symbol: str,
         stream_type: BinanceMarketStreamType | BybitStreamType,
+        symbol: str | None = None,
         timeframe: BinanceTimeframe | BybitTimeframe | None = None,
     ) -> None:
         self.broker: BinanceBroker | BybitBroker = broker
         self.symbol = symbol
-        self.stream_type: BinanceMarketStreamType | BybitStreamType = (
-            stream_type
-        )
+        self.stream_type: BinanceMarketStreamType | BybitStreamType = stream_type
         self.timeframe: BinanceTimeframe | BybitTimeframe | None = timeframe
         self.stop_event = asyncio.Event()
 
         if stream_type == "kline" and not timeframe:
-            ValueError(
-                'If stream type is "kline" timeframe should be provided.'
-            )
+            ValueError('If stream type is "kline" timeframe should be provided.')
 
     async def run_stream(self, handler: Callable):
         raise NotImplementedError
@@ -128,6 +125,14 @@ async def get_actual_streams(
             for symbol in symbols
             if symbol.broker.name in BYBIT_BROKERS
         ],
+        BybitStream(
+            broker="Bybit-inverse",
+            stream_type="position",
+        ),
+        BybitStream(
+            broker="Bybit-inverse",
+            stream_type="order",
+        ),
     ]
 
 
@@ -151,8 +156,8 @@ async def get_symbols_for_deleting(db: AsyncSession) -> list[SymbolORM]:
         .join(AlertORM, AlertORM.symbol_id == SymbolORM.id, isouter=True)
         .join(LineORM, LineORM.symbol_id == SymbolORM.id, isouter=True)
         .where(
-            (AlertORM.id == None)
-            & (LineORM.id == None)
+            (AlertORM.id.is_(None))
+            & (LineORM.id.is_(None))
             & not_(
                 (
                     SymbolORM.name.in_(
@@ -181,8 +186,8 @@ async def task_run_market_streams(
     sessionmaker: DatabaseSessionManager,
 ) -> None:
     while not stop_event.is_set():
-        async with sessionmaker.session() as db:
-            try:
+        try:
+            async with sessionmaker.session() as db:
                 # delete old inactive alerts
                 alerts_for_deleting = await get_alerts_for_deleting(db)
                 for alert in alerts_for_deleting:
@@ -199,16 +204,17 @@ async def task_run_market_streams(
                     if stream not in actual_streams:
                         stream.stop()
                         streams.pop(i)
-                        print(f"delete stream {stream}")
+                        logger.info(f"delete stream {stream}")
 
                 # start actual streams
                 for actual_stream in actual_streams:
                     if actual_stream not in streams:
                         await actual_stream.run_stream(ws_ticker_handler)
                         streams.append(actual_stream)
-                        print(f"append stream {actual_stream}")
+                        logger.info(f"run stream {actual_stream}")
 
-            except Exception as ex:
-                logger.critical(str(ex))
+        except Exception as ex:
+            logger.critical(str(ex))
 
         await asyncio.sleep(60)
+

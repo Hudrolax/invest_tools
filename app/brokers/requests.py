@@ -117,7 +117,11 @@ async def authorized_request(
     try:
         if broker in BYBIT_BROKERS:
             time_stamp=str(int(time.time() * 10 ** 3))
-            param_str= str(time_stamp) + BYBIT_API_KEY + '5000' + query_string
+            if http_method.upper() == 'GET':
+                param_str= str(time_stamp) + BYBIT_API_KEY + '5000' + query_string
+            else:
+                param_str= str(time_stamp) + BYBIT_API_KEY + '5000' + json.dumps(params)
+
             hash = hmac.new(bytes(secret, "utf-8"), param_str.encode("utf-8"),hashlib.sha256)
             signature = hash.hexdigest()
             headers = {
@@ -136,7 +140,13 @@ async def authorized_request(
             }
 
         async with aiohttp.ClientSession() as session:
-            async with session.request(http_method, url, params=params, headers=headers) as response:
+            request_kwargs = dict(method=http_method, url=url, headers=headers)
+            if http_method.upper() == 'GET':
+                request_kwargs = {**request_kwargs, "params": params}
+            else:
+                request_kwargs = {**request_kwargs, "json": params}
+
+            async with session.request(**request_kwargs) as response:
                 response.raise_for_status()  # проверка на ошибки HTTP
                 text = await response.text()
                 logger.debug(f"response: {text}")
