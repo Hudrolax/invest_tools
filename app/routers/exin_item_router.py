@@ -139,7 +139,7 @@ async def get_exin_items_for_home_screen(
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
 ) -> list[HomeScreenItem]:
-    currency = await CurrencyORM.get(db, name=currency_name)
+    currency = await CurrencyORM.get_by_name(db, name=currency_name)
     if not currency:
         raise HTTPException(422, f'Currency with name "{currency_name}" not found.')
 
@@ -161,7 +161,7 @@ async def get_exin_items_for_home_screen(
         select(
             ExInItemORM.id,
             ExInItemORM.name,
-            func.max(case((amount_query.c.amount == None, 0), else_=amount_query.c.amount)).label('amount'),
+            func.max(case((amount_query.c.amount.is_(None), 0), else_=amount_query.c.amount)).label('amount'),
         )
         .select_from(ExInItemORM)
         .join(UserExInItemORM, UserExInItemORM.exin_item_id == ExInItemORM.id)

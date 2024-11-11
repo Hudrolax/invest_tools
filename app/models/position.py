@@ -12,11 +12,9 @@ from sqlalchemy.orm import relationship
 from decimal import Decimal
 from .base_object import BaseDBObject
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import NoResultFound
 from models.broker import BrokerORM
 from models.symbol import SymbolORM
-from models.user import UserORM
-from typing import Sequence
 
 
 class PositionORM(BaseDBObject):

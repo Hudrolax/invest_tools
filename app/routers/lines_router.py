@@ -1,5 +1,5 @@
 from pydantic import BaseModel, validator
-from sqlalchemy import except_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import NoResultFound, IntegrityError
@@ -81,23 +81,35 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=bool)
+@router.post("/add_line", response_model=bool)
 async def post_line(
     data: LineCreate,
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> bool:
     try:
+        x0 = datetime.fromtimestamp(data.x0)
+        x1 = datetime.fromtimestamp(data.x1)
+        y0 = Decimal(data.y0)
+        y1 = Decimal(data.y1)
+        if x0 > x1:
+            x_tmp = x0
+            x0 = x1
+            x1 = x_tmp
+            y_temp = y1
+            y1 = y0
+            y0 = y_temp
+
         await LineORM.create(
             db=db,
             user_id=user.id,
             symbol_name=data.symbol_name,
             broker_name=data.broker_name,
             line_type=data.line_type,
-            x0=datetime.fromtimestamp(data.x0),
-            y0=Decimal(data.y0),
-            x1=datetime.fromtimestamp(data.x1),
-            y1=Decimal(data.y1),
+            x0=x0,
+            y0=y0,
+            x1=x1,
+            y1=y1,
             color=data.color,
             width=int(data.width) if data.width else None,
         )
@@ -158,13 +170,32 @@ async def update_line(
     user: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> bool:
+    x0 = datetime.fromtimestamp(data.x0)
+    x1 = datetime.fromtimestamp(data.x1)
+    y0 = Decimal(data.y0)
+    y1 = Decimal(data.y1)
+    if x0 > x1:
+        x_tmp = x0
+        x0 = x1
+        x1 = x_tmp
+        y_temp = y1
+        y1 = y0
+        y0 = y_temp
+
     try:
         line = await LineORM.get(db, line_id)
         if line.user_id != user.id:  # type: ignore
             raise HTTPException(401, "Wrong TOKEN")
 
         await LineORM.update(
-            db=db, id=line_id, **data.model_dump(exclude_unset=True)
+            db=db,
+            id=line_id,
+            x0=x0,
+            y0=y0,
+            x1=x1,
+            y1=y1,
+            color=data.color,
+            width=int(data.width) if data.width else None,
         )
         return True
     except NoResultFound:

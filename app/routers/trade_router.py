@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy.exc import NoResultFound
 
+from models.chart_settings import ChartSettingsORM
 from brokers.exceptions import GetPositionsError, CloseOrderError
 from core.db import get_db
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +22,12 @@ router = APIRouter(
     prefix="/trade",
     tags=["trade"],
 )
+
+class ChartSettings(BaseModel):
+    broker: str
+    symbol: str
+    timeframe: int
+    show_order_icons: bool
 
 
 class PositionBase(BaseModel):
@@ -62,20 +69,22 @@ class OrderBase(BaseModel):
     order_status: str
     order_type: str
     price: str
+    avg_price: str
     qty: str
     cum_exec_qty: str
     cum_exec_fee: str
     take_profit: str | None = None
     stop_loss: str | None = None
     created_time: int
+    updated_time: int | None = None
 
     @validator(
-        "price", "qty", "cum_exec_qty", "cum_exec_fee", "take_profit", "stop_loss", pre=True
+        "price", "avg_price", "qty", "cum_exec_qty", "cum_exec_fee", "take_profit", "stop_loss", pre=True
     )
     def format_decimal_fields(cls, value):
         return format_decimal(value)
 
-    @validator("created_time", pre=True)
+    @validator("created_time", "updated_time", pre=True)
     def format_date_field(cls, value):
         return format_date(value)
 
@@ -106,12 +115,14 @@ async def api_get_orders(
             OrderORM.order_status,
             OrderORM.order_type,
             OrderORM.price,
+            OrderORM.avg_price,
             OrderORM.qty,
             OrderORM.cum_exec_qty,
             OrderORM.cum_exec_fee,
             OrderORM.take_profit,
             OrderORM.stop_loss,
             OrderORM.created_time,
+            OrderORM.updated_time,
         )
         .select_from(OrderORM)
         .join(BrokerORM, (BrokerORM.id == OrderORM.broker_id) & (BrokerORM.name == broker))
@@ -158,7 +169,7 @@ async def api_cancel_orders(
 
 
 @router.get("/position", response_model=PositionInstance)
-async def api_get_posiotions(
+async def api_get_positions(
     broker: BybitBroker,
     symbol: str,
     db: AsyncSession = Depends(get_db),
@@ -187,3 +198,75 @@ async def api_get_posiotions(
         )
     except GetPositionsError:
         raise HTTPException(500, "broker not available")
+
+
+@router.get("/chart_settings/{broker}/{symbol}", response_model=ChartSettings)
+async def api_get_timeframe(
+    broker: str,
+    symbol: str,
+    db: AsyncSession = Depends(get_db),
+    user: UserORM = Depends(check_token),
+) -> ChartSettings:
+    query = (
+        select(
+            ChartSettingsORM.timeframe,
+            ChartSettingsORM.show_order_icons,
+        )
+        .select_from(ChartSettingsORM)
+        .join(SymbolORM, (SymbolORM.id == ChartSettingsORM.symbol_id) & (SymbolORM.name == symbol))
+        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == broker))
+        .where(ChartSettingsORM.user_id == user.id)
+    )
+    result = (await db.execute(query)).mappings().all()
+    if result:
+        result = ChartSettings(broker=broker, symbol=symbol, **result[0])
+        return result
+    else:
+        raise HTTPException(404, f'timeframe settings for broker {broker} and symbol {symbol} not found')
+
+
+@router.post("/chart_settings", response_model=bool)
+async def api_set_timeframe(
+    data: ChartSettings,
+    db: AsyncSession = Depends(get_db),
+    user: UserORM = Depends(check_token),
+) -> bool:
+    query = (
+        select(
+            ChartSettingsORM.id
+        )
+        .select_from(ChartSettingsORM)
+        .join(SymbolORM, (SymbolORM.id == ChartSettingsORM.symbol_id) & (SymbolORM.name == data.symbol))
+        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == data.broker))
+        .where(ChartSettingsORM.user_id == user.id)
+    )
+    chart_settings = (await db.execute(query)).mappings().first()
+    if chart_settings:
+        await ChartSettingsORM.update(
+            db,
+            id=chart_settings.id,
+            timeframe = data.timeframe,
+            show_order_icons = data.show_order_icons,
+        )
+        return True
+
+    query = (
+        select(
+            SymbolORM.id
+        )
+        .select_from(SymbolORM)
+        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == data.broker))
+        .where(SymbolORM.name == data.symbol)
+    )
+    symbol = (await db.execute(query)).mappings().first()
+    if not symbol:
+        raise HTTPException(422, "Wrong broker name or symbol name")
+    await ChartSettingsORM.create(
+        db,
+        user_id=user.id,
+        symbol_id=symbol['id'],
+        timeframe=data.timeframe,
+        show_order_icons=data.show_order_icons,
+    )
+    return True
+

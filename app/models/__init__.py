@@ -13,3 +13,4 @@ from .checklist import *
 from .lines import *
 from .order import *
 from .position import *
+from .chart_settings import *

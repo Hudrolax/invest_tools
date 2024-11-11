@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, select, asc, ForeignKey, and_, UniqueConstraint
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from typing import Self, Union

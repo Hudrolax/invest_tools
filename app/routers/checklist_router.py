@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, case, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, IntegrityError
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
 from core.db import get_db
 from routers import check_token

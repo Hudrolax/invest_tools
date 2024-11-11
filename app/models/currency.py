@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, select, asc
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 
@@ -45,3 +45,11 @@ class CurrencyORM(BaseDBObject):
     async def get_all(cls, db: AsyncSession) -> list['CurrencyORM']:
         result = await db.execute(select(cls).order_by(asc(cls.id)))  # сортировка по возрастанию id
         return list(result.scalars().all())
+
+
+    @classmethod
+    async def get_by_name(cls, db: AsyncSession, name: str | Column[str]) -> 'CurrencyORM':
+        result = (await db.scalars(select(cls).where(cls.name == name))).first()
+        if not result:
+            raise NoResultFound
+        return result

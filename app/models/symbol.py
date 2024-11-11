@@ -11,9 +11,9 @@ from sqlalchemy import (
     TIMESTAMP,
 )
 from sqlalchemy.orm import relationship, aliased, joinedload
-from sqlalchemy.exc import NoResultFound, IntegrityError, OperationalError
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Self, Sequence
+from typing import Sequence
 from decimal import Decimal
 
 from .base_object import BaseDBObject
@@ -34,6 +34,7 @@ class SymbolORM(BaseDBObject):
     lines = relationship("LineORM", back_populates="symbol", cascade="all, delete")
     orders = relationship("OrderORM", back_populates="symbol", cascade="all, delete")
     positions = relationship("PositionORM", back_populates="symbol", cascade="all, delete")
+    chart_settings = relationship('ChartSettingsORM', back_populates='symbol', cascade="all, delete")
 
     def __str__(self) -> str:
         return f"{self.name}"

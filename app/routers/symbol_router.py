@@ -29,22 +29,12 @@ class Symbol(SymbolBase):
     id: int
 
 
+
 router = APIRouter(
     prefix="/symbols",
     tags=["symbols"],
     responses={404: {"description": "Symbol not found"}},
 )
-
-
-# @router.post("/", response_model=Symbol)
-# async def post_symbol(
-#     data: SymbolCreate,
-#     db: AsyncSession = Depends(get_db),
-# ) -> Symbol:
-#     try:
-#         return await SymbolORM.create(db=db, **data.model_dump())
-#     except IntegrityError as ex:
-#         raise HTTPException(422, str(ex.orig))
 
 
 # @router.put("/{symbol_id}", response_model=Symbol)

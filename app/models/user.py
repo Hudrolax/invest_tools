@@ -22,6 +22,7 @@ class UserORM(BaseDBObject):
     superuser = Column(BOOLEAN, nullable=False, default=False)
     family_group = Column(String)
     family_leader = Column(Integer, ForeignKey('users.id'))
+    last_symbol_id = Column(Integer, ForeignKey("symbols.id", ondelete="CASCADE"), nullable=True) # Last choosed symbol on the chart
 
     alerts = relationship('AlertORM', back_populates='user', cascade="all, delete")
     tokens = relationship('TokenORM', back_populates='user', cascade="all, delete")
@@ -32,6 +33,7 @@ class UserORM(BaseDBObject):
     lines = relationship('LineORM', back_populates='user', cascade="all, delete")
     orders = relationship('OrderORM', back_populates='user', cascade="all, delete")
     positions = relationship('PositionORM', back_populates='user', cascade="all, delete")
+    chart_settings = relationship('ChartSettingsORM', back_populates='user', cascade="all, delete")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
