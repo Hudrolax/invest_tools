@@ -124,7 +124,11 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
         if user.verify_password(user_data.password):
             token = create_access_token(
                 user_data.model_dump(exclude_unset=True))
-            return UserData(user_id=user.id, token=token, openai_api_key=OPENAI_API_KEY)
+            return UserData(
+                    user_id=int(user.id),  # type: ignore
+                    token=token,
+                    openai_api_key=OPENAI_API_KEY,
+                )
         else:
             raise HTTPException(401, 'Wrong password')
     except NoResultFound:
@@ -165,6 +169,17 @@ async def get_users(
     if not user.superuser:  # type: ignore
         raise HTTPException(401, 'You are not superuser')
     return await UserORM.get_all(db)
+
+
+@router.get("/user_info", response_model=User)
+async def get_user_by_token(
+    user: UserORM = Depends(check_token),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    try:
+        return await UserORM.get(db, id=user.id)
+    except NoResultFound:
+        raise HTTPException(404, f'User with id {user.id} not found.')
 
 
 @router.get("/{user_id}", response_model=User)

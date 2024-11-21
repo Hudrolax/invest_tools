@@ -28,6 +28,8 @@ from handlers import ws_ticker_handler
 from models.symbol import SymbolORM
 from models.alert import AlertORM
 from models.lines import LineORM
+from models.order import OrderORM
+from models.position import PositionORM
 
 
 logger = logging.getLogger(__name__)
@@ -105,17 +107,17 @@ streams: list[BinanceStream | BybitStream] = []
 async def get_actual_streams(
     db: AsyncSession,
 ) -> list[BinanceStream | BybitStream]:
-    symbols = await SymbolORM.get_all(db)
+    symbols = await SymbolORM.get_with_wss(db)
     return [
-        *[
-            BinanceStream(
-                broker=symbol.broker.name,
-                symbol=str(symbol.name),
-                stream_type="ticker",
-            )
-            for symbol in symbols
-            if symbol.broker.name in BINANCE_BROKERS
-        ],
+        # *[
+        #     BinanceStream(
+        #         broker=symbol.broker.name,
+        #         symbol=str(symbol.name),
+        #         stream_type="ticker",
+        #     )
+        #     for symbol in symbols
+        #     if symbol.broker.name in BINANCE_BROKERS
+        # ],
         *[
             BybitStream(
                 broker=symbol.broker.name,
@@ -130,7 +132,19 @@ async def get_actual_streams(
             stream_type="position",
         ),
         BybitStream(
+            broker="Bybit_perpetual",
+            stream_type="position",
+        ),
+        BybitStream(
             broker="Bybit-inverse",
+            stream_type="order",
+        ),
+        BybitStream(
+            broker="Bybit_perpetual",
+            stream_type="order",
+        ),
+        BybitStream(
+            broker="Bybit-spot",
             stream_type="order",
         ),
     ]
@@ -149,15 +163,19 @@ async def get_alerts_for_deleting(db: AsyncSession) -> list[AlertORM]:
 
 
 @async_traceback_errors(logger)
-async def get_symbols_for_deleting(db: AsyncSession) -> list[SymbolORM]:
+async def get_symbols_for_deactivate_wss(db: AsyncSession) -> list[SymbolORM]:
     query = (
         select(SymbolORM)
         .select_from(SymbolORM)
         .join(AlertORM, AlertORM.symbol_id == SymbolORM.id, isouter=True)
         .join(LineORM, LineORM.symbol_id == SymbolORM.id, isouter=True)
+        .join(OrderORM, (OrderORM.symbol_id == SymbolORM.id), isouter=True)
+        .join(PositionORM, PositionORM.symbol_id == SymbolORM.id, isouter=True)
         .where(
             (AlertORM.id.is_(None))
             & (LineORM.id.is_(None))
+            & (OrderORM.id.is_(None))
+            & (PositionORM.id.is_(None))
             & not_(
                 (
                     SymbolORM.name.in_(
@@ -193,10 +211,10 @@ async def task_run_market_streams(
                 for alert in alerts_for_deleting:
                     await alert.delete_self(db)
 
-                # delete unactual symbols
-                symbols_for_deleting = await get_symbols_for_deleting(db)
+                # off unactual symbols
+                symbols_for_deleting = await get_symbols_for_deactivate_wss(db)
                 for symbol in symbols_for_deleting:
-                    await symbol.delete_self(db)
+                    await SymbolORM.update(db, id=symbol.id, active_wss=False)
 
                 # stop non actual streams
                 actual_streams = await get_actual_streams(db)

@@ -23,7 +23,6 @@ class OrderORM(BaseDBObject):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False, index=True)
     symbol_id = Column(Integer, ForeignKey("symbols.id", ondelete="CASCADE"), nullable=False, index=True)
     broker_order_id = Column(String, nullable=False, index=True)
     strategy_id = Column(String, nullable=True, index=True)
@@ -50,12 +49,11 @@ class OrderORM(BaseDBObject):
     updated_time = Column(TIMESTAMP, nullable=True, index=True)
     comment = Column(TEXT, nullable=True)
 
-    broker = relationship("BrokerORM", back_populates="orders")
     symbol = relationship("SymbolORM", back_populates="orders")
     user = relationship("UserORM", back_populates="orders")
 
     def __str__(self) -> str:
-        return f"order: user {self.user_id} broker {self.broker_id} {self.order_status} {self.side} {self.order_type} price {self.price} qty {self.qty}"
+        return f"order: user {self.user_id} {self.order_status} {self.side} {self.order_type} price {self.price} qty {self.qty}"
 
     @classmethod
     async def get_by_id_and_user(cls, db: AsyncSession, id: int | Column[int], user_id: int | Column[int]) -> Self:

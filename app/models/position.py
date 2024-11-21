@@ -21,7 +21,6 @@ class PositionORM(BaseDBObject):
     __tablename__ = "positions"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False, index=True)
     symbol_id = Column(Integer, ForeignKey("symbols.id", ondelete="CASCADE"), nullable=False, index=True)
     side = Column(String, nullable=False, index=True)
     size = Column(DECIMAL(precision=20, scale=8), nullable=False)
@@ -41,12 +40,11 @@ class PositionORM(BaseDBObject):
     updated_time = Column(TIMESTAMP, nullable=True, index=True)
     comment = Column(TEXT, nullable=True)
 
-    broker = relationship("BrokerORM", back_populates="positions")
     symbol = relationship("SymbolORM", back_populates="positions")
     user = relationship("UserORM", back_populates="positions")
 
     def __str__(self) -> str:
-        return f"position: user {self.user_id} broker {self.broker_id} {self.side} pnl {self.cum_realised_pnl}"
+        return f"position: user {self.user_id} {self.side} pnl {self.cum_realised_pnl}"
 
     @classmethod
     async def get_by_broker_symbol(
@@ -58,9 +56,9 @@ class PositionORM(BaseDBObject):
     ) -> 'BaseDBObject':
         result = (await db.execute(
             select(cls)
-            .join(BrokerORM, BrokerORM.id == cls.broker_id)
-            .join(SymbolORM, SymbolORM.id == cls.symbol_id)
-            .where((BrokerORM.name == broker) & (SymbolORM.name == symbol) & (cls.user_id == user_id))
+            .join(SymbolORM, (SymbolORM.id == cls.symbol_id) & (SymbolORM.name == symbol))
+            .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == broker))
+            .where(cls.user_id == user_id)
         )).scalars().all()
         if not result:
             raise NoResultFound

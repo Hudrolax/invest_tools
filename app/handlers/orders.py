@@ -22,7 +22,13 @@ async def create_refresh_orders_in_db(
     symbol: str,
 ) -> None:
     broker_instance = await BrokerORM.get_by_name(db, name=broker)
-    symbol_instance = await SymbolORM.get_by_name_and_broker(db, name=symbol.upper(), broker_name=broker)
+    try:
+        symbol_instance = await SymbolORM.get_by_name_and_broker(db, name=symbol.upper(), broker_name=broker)
+    except NoResultFound:
+        symbol_instance = await SymbolORM.get_or_create(db, symbol, broker_instance.id)
+
+    await SymbolORM.update(db, id=symbol_instance.id, active_wss=True)
+
     for order in orders:
         kwargs = dict(
             price=Decimal(order["price"]),
@@ -49,7 +55,6 @@ async def create_refresh_orders_in_db(
             await OrderORM.create(
                 db,
                 user_id=1,
-                broker_id=broker_instance.id,
                 symbol_id=symbol_instance.id,
                 broker_order_id=order["orderId"],
                 side=order["side"],

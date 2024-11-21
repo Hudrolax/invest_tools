@@ -1,5 +1,7 @@
 from .task_ws import task_run_market_streams
 from .task_update_market_data import task_update_market_data
 from .task_remove_old_checklist_items import task_remove_old_checklist_items
-from .task_trade import task_get_orders, task_get_positions, task_remove_old_orders
+from .task_orders import task_get_orders, task_remove_old_orders
 from .task_usd_rub_rate import task_get_usd_rub_rate
+from .task_get_symbols_info import task_get_symbols_info
+from .task_get_positions import task_get_positions

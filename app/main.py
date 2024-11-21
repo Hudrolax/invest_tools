@@ -1,7 +1,10 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import ResponseValidationError
+from fastapi.responses import JSONResponse
 from uvicorn.config import Config
 from uvicorn.server import Server
 
@@ -22,14 +25,17 @@ from routers.trade_router import router as trade_router
 
 from tasks import (
     task_run_market_streams,
-    task_update_market_data,
+    # task_update_market_data,
     task_remove_old_checklist_items,
     task_get_orders,
     task_get_usd_rub_rate,
     task_get_positions,
     task_remove_old_orders,
+    task_get_symbols_info,
 )
 import core.config
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -51,6 +57,25 @@ app.add_middleware(
        allow_methods=["*"],  # Разрешите все методы или укажите конкретные
        allow_headers=["*"],  # Разрешите все заголовки или укажите конкретные
    )
+
+@app.middleware("http")
+async def log_request_response(request: Request, call_next):
+    response = await call_next(request)
+    if response.status_code != 200:
+        logger.info(f"Request: {request.method} {request.url} - Response: {response.status_code}")
+    return response
+
+@app.exception_handler(ResponseValidationError)
+async def response_validation_exception_handler(request: Request, exc: ResponseValidationError):
+    logger.error(f"ResponseValidationError for request: {request.url}, method: {request.method}, errors: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Response validation error",
+            "errors": exc.errors(),
+        },
+    )
+
 
 app.include_router(user_router)
 app.include_router(symbol_router)
@@ -77,12 +102,13 @@ async def main() -> None:
     await asyncio.gather(
         run_fastapi(),
         task_run_market_streams(stop_event, sessionmanager),
-        task_update_market_data(stop_event),
+        # task_update_market_data(stop_event),
         task_remove_old_checklist_items(stop_event, sessionmanager),
         task_get_orders(stop_event, sessionmanager),
         task_get_usd_rub_rate(stop_event, sessionmanager),
         task_get_positions(stop_event, sessionmanager),
         task_remove_old_orders(stop_event, sessionmanager),
+        task_get_symbols_info(stop_event, sessionmanager),
     )
 
 

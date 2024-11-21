@@ -11,8 +11,6 @@ class BrokerORM(BaseDBObject):
     id = Column(Integer, primary_key=True, index=True)  # type: ignore
     name = Column(String, unique=True, nullable=False)  # type: ignore
     symbols = relationship("SymbolORM", back_populates="broker", cascade="all, delete")
-    orders = relationship("OrderORM", back_populates="broker", cascade="all, delete")
-    positions = relationship("PositionORM", back_populates="broker", cascade="all, delete")
 
     def __str__(self) -> str:
         return f"{self.name}"

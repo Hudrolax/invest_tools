@@ -3,7 +3,12 @@ from datetime import datetime
 from sqlalchemy.exc import NoResultFound
 
 from models.chart_settings import ChartSettingsORM
-from brokers.exceptions import GetPositionsError, CloseOrderError
+from brokers.exceptions import (
+    GetPositionsError,
+    CloseOrderError,
+    ModifyOrderError,
+    OpenOrderError,
+)
 from core.db import get_db
 from fastapi import APIRouter, Depends, HTTPException
 from models.broker import BrokerORM
@@ -13,15 +18,28 @@ from models.user import UserORM
 from models.position import PositionORM
 from pydantic import BaseModel, validator
 from routers import check_token, format_decimal, format_date
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from brokers.bybit.bybit_api import cancel_order
-from brokers.bybit import BYBIT_BROKERS, BybitBroker
+from brokers.bybit.bybit_api import cancel_order, modify_order, open_order
+from brokers.bybit import (
+    BYBIT_BROKERS,
+    BybitBroker,
+    MarketUnit,
+    OrderSide,
+    OrderType,
+    TriggerDirection,
+    TriggerBy,
+)
 
 router = APIRouter(
     prefix="/trade",
     tags=["trade"],
 )
+
+
+class BaseRespone(BaseModel):
+    retMsg: str = 'OK'
+
 
 class ChartSettings(BaseModel):
     broker: str
@@ -30,7 +48,7 @@ class ChartSettings(BaseModel):
     show_order_icons: bool
 
 
-class PositionBase(BaseModel):
+class PositionBase(BaseRespone):
     symbol: str
     leverage: str
     entryPrice: str
@@ -48,8 +66,18 @@ class PositionBase(BaseModel):
     stopLoss: str
 
     @validator(
-        "leverage", "entryPrice", "liqPrice", "takeProfit", "positionValue",
-        "unrealisedPnl", "markPrice", "cumRealisedPnl", "curRealisedPnl", "size", "stopLoss", pre=True
+        "leverage",
+        "entryPrice",
+        "liqPrice",
+        "takeProfit",
+        "positionValue",
+        "unrealisedPnl",
+        "markPrice",
+        "cumRealisedPnl",
+        "curRealisedPnl",
+        "size",
+        "stopLoss",
+        pre=True,
     )
     def format_decimal_fields(cls, value):
         return format_decimal(value)
@@ -79,7 +107,14 @@ class OrderBase(BaseModel):
     updated_time: int | None = None
 
     @validator(
-        "price", "avg_price", "qty", "cum_exec_qty", "cum_exec_fee", "take_profit", "stop_loss", pre=True
+        "price",
+        "avg_price",
+        "qty",
+        "cum_exec_qty",
+        "cum_exec_fee",
+        "take_profit",
+        "stop_loss",
+        pre=True,
     )
     def format_decimal_fields(cls, value):
         return format_decimal(value)
@@ -97,6 +132,32 @@ class CancelOrder(BaseModel):
     order_id: int
     broker: BybitBroker
     symbol: str
+
+
+class ModifyOrder(BaseModel):
+    order_id: int
+    broker: BybitBroker
+    symbol: str
+    price: str
+
+
+class CreateOrder(BaseModel):
+    broker: BybitBroker
+    symbol: str
+    side: OrderSide
+    orderType: OrderType
+    qty: str
+    price: str | None = None
+    marketUnit: MarketUnit | None = None
+    isLeverage: int | None = None
+    orderLinkId: str | None = None
+    triggerDirection: TriggerDirection | None = None
+    triggerPrice: str | None = None
+    triggerBy: TriggerBy | None = None
+    takeProfit: str | None = None
+    stopLoss: str | None = None
+    tpTriggerBy: TriggerBy | None = None
+    slTriggerBy: TriggerBy | None = None
 
 
 @router.get("/order", response_model=list[OrderInstance])
@@ -125,12 +186,20 @@ async def api_get_orders(
             OrderORM.updated_time,
         )
         .select_from(OrderORM)
-        .join(BrokerORM, (BrokerORM.id == OrderORM.broker_id) & (BrokerORM.name == broker))
-        .join(SymbolORM, (SymbolORM.id == OrderORM.symbol_id) & (SymbolORM.name == symbol))
+        .join(
+            SymbolORM, (SymbolORM.id == OrderORM.symbol_id) & (SymbolORM.name == symbol)
+        )
+        .join(
+            BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == broker)
+        )
         .where(
             (OrderORM.user_id == user.id)
             & (OrderORM.created_time >= datetime.fromtimestamp(startTime))
             & (OrderORM.order_status != "Cancelled")
+            & (OrderORM.order_status != "Untriggered")
+            & (OrderORM.order_status != "Rejected")
+            & (OrderORM.order_status != "Triggered")
+            & (OrderORM.order_status != "Deactivated")
         )
     )
     result = (await db.execute(query)).mappings().all()
@@ -138,24 +207,27 @@ async def api_get_orders(
     return result
 
 
-@router.post("/order/cancel", response_model=bool)
+@router.delete("/order", response_model=bool)
 async def api_cancel_orders(
     payload: CancelOrder,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
 ) -> bool:
     try:
-        order = await OrderORM.get_by_id_and_user(db, id=payload.order_id, user_id=user.id)
+        order = await OrderORM.get_by_id_and_user(
+            db, id=payload.order_id, user_id=user.id
+        )
 
         if payload.broker in BYBIT_BROKERS:
             try:
                 result = await cancel_order(
-                    orderId=str(order.broker_order_id), broker=payload.broker, symbol=payload.symbol
+                    orderId=str(order.broker_order_id),
+                    broker=payload.broker,
+                    symbol=payload.symbol,
                 )
-                print(result)
                 return result
             except CloseOrderError as ex:
-                if 'order not exists or too late to cancel' in str(ex):
+                if "order not exists or too late to cancel" in str(ex):
                     await OrderORM.delete(db, order.id)
                     return True
                 raise
@@ -167,14 +239,113 @@ async def api_cancel_orders(
         raise HTTPException(403, "Wrong order_id or user_id!")
 
 
+@router.put("/order")
+async def api_modify_orders(
+    payload: ModifyOrder,
+    db: AsyncSession = Depends(get_db),
+    user: UserORM = Depends(check_token),
+) -> bool:
+    try:
+        order = await OrderORM.get_by_id_and_user(
+            db, id=payload.order_id, user_id=user.id
+        )
 
-@router.get("/position", response_model=PositionInstance)
+        if payload.broker in BYBIT_BROKERS:
+            try:
+                result = await modify_order(
+                    orderId=str(order.broker_order_id),
+                    broker=payload.broker,
+                    symbol=payload.symbol,
+                    price=payload.price,
+                )
+                print("order modify!")
+                return result
+            except ModifyOrderError:
+                raise HTTPException(408, "Брокер занят")
+
+        else:
+            raise HTTPException(422, f"Wrong broker {payload.broker}")
+
+    except NoResultFound:
+        raise HTTPException(403, "Wrong order_id or user_id!")
+
+
+@router.post("/order", response_model=bool)
+async def api_create_orders(
+    payload: CreateOrder,
+    user: UserORM = Depends(check_token),
+) -> bool:
+    if payload.broker in BYBIT_BROKERS:
+        try:
+            result = await open_order(
+                broker=payload.broker,
+                symbol=payload.symbol,
+                side=payload.side,
+                orderType=payload.orderType,
+                qty=payload.qty,
+                **({"price": payload.price} if payload.price is not None else {}),  # type: ignore
+                **({"marketUnit": payload.marketUnit} if payload.marketUnit is not None else {}),  # type: ignore
+                **(
+                    {"isLeverage": payload.isLeverage}
+                    if payload.isLeverage is not None
+                    else {}
+                ),
+                **(
+                    {"orderLinkId": payload.orderLinkId}
+                    if payload.orderLinkId is not None
+                    else {}
+                ),
+                **(
+                    {"triggerDirection": payload.triggerDirection}
+                    if payload.triggerDirection is not None
+                    else {}
+                ),
+                **(
+                    {"triggerPrice": payload.triggerPrice}
+                    if payload.triggerPrice is not None
+                    else {}
+                ),
+                **(
+                    {"triggerBy": payload.triggerBy}
+                    if payload.triggerBy is not None
+                    else {}
+                ),
+                **(
+                    {"takeProfit": payload.takeProfit}
+                    if payload.takeProfit is not None
+                    else {}
+                ),
+                **(
+                    {"stopLoss": payload.stopLoss}
+                    if payload.stopLoss is not None
+                    else {}
+                ),
+                **(
+                    {"tpTriggerBy": payload.tpTriggerBy}
+                    if payload.tpTriggerBy is not None
+                    else {}
+                ),
+                **(
+                    {"slTriggerBy": payload.slTriggerBy}
+                    if payload.slTriggerBy is not None
+                    else {}
+                ),
+            )
+            return result
+        except OpenOrderError as ex:
+            raise HTTPException(422, str(ex))
+
+    else:
+        raise HTTPException(422, f"Wrong broker {payload.broker}")
+
+
+@router.get("/position", response_model=PositionInstance | BaseRespone)
 async def api_get_positions(
     broker: BybitBroker,
     symbol: str,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
-) -> PositionInstance:
+) -> PositionInstance | BaseRespone:
     try:
         position = await PositionORM.get_by_broker_symbol(db, broker, symbol, user.id)
 
@@ -196,6 +367,8 @@ async def api_get_positions(
             size=position.size,
             stopLoss=position.stop_loss,
         )
+    except NoResultFound:
+        return BaseRespone(retMsg='No positions')
     except GetPositionsError:
         raise HTTPException(500, "broker not available")
 
@@ -209,12 +382,22 @@ async def api_get_timeframe(
 ) -> ChartSettings:
     query = (
         select(
-            ChartSettingsORM.timeframe,
-            ChartSettingsORM.show_order_icons,
+            func.coalesce(ChartSettingsORM.timeframe, 240).label(
+                "timeframe"
+            ),
+            func.coalesce(ChartSettingsORM.show_order_icons, True).label(
+                "show_order_icons"
+            ),
         )
         .select_from(ChartSettingsORM)
-        .join(SymbolORM, (SymbolORM.id == ChartSettingsORM.symbol_id) & (SymbolORM.name == symbol))
-        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == broker))
+        .join(
+            SymbolORM,
+            (SymbolORM.id == ChartSettingsORM.symbol_id) & (SymbolORM.name == symbol),
+        )
+        .join(
+            BrokerORM,
+            (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == broker),
+        )
         .where(ChartSettingsORM.user_id == user.id)
     )
     result = (await db.execute(query)).mappings().all()
@@ -222,22 +405,29 @@ async def api_get_timeframe(
         result = ChartSettings(broker=broker, symbol=symbol, **result[0])
         return result
     else:
-        raise HTTPException(404, f'timeframe settings for broker {broker} and symbol {symbol} not found')
+        return ChartSettings(
+            broker=broker, symbol=symbol, timeframe=240, show_order_icons=True
+        )
 
 
-@router.post("/chart_settings", response_model=bool)
+@router.post("/chart_settings", response_model=BaseRespone)
 async def api_set_timeframe(
     data: ChartSettings,
     db: AsyncSession = Depends(get_db),
     user: UserORM = Depends(check_token),
-) -> bool:
+) -> BaseRespone:
     query = (
-        select(
-            ChartSettingsORM.id
-        )
+        select(ChartSettingsORM.id)
         .select_from(ChartSettingsORM)
-        .join(SymbolORM, (SymbolORM.id == ChartSettingsORM.symbol_id) & (SymbolORM.name == data.symbol))
-        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == data.broker))
+        .join(
+            SymbolORM,
+            (SymbolORM.id == ChartSettingsORM.symbol_id)
+            & (SymbolORM.name == data.symbol),
+        )
+        .join(
+            BrokerORM,
+            (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == data.broker),
+        )
         .where(ChartSettingsORM.user_id == user.id)
     )
     chart_settings = (await db.execute(query)).mappings().first()
@@ -245,17 +435,18 @@ async def api_set_timeframe(
         await ChartSettingsORM.update(
             db,
             id=chart_settings.id,
-            timeframe = data.timeframe,
-            show_order_icons = data.show_order_icons,
+            timeframe=data.timeframe,
+            show_order_icons=data.show_order_icons,
         )
-        return True
+        return BaseRespone(retMsg="OK")
 
     query = (
-        select(
-            SymbolORM.id
-        )
+        select(SymbolORM.id)
         .select_from(SymbolORM)
-        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == data.broker))
+        .join(
+            BrokerORM,
+            (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == data.broker),
+        )
         .where(SymbolORM.name == data.symbol)
     )
     symbol = (await db.execute(query)).mappings().first()
@@ -264,9 +455,8 @@ async def api_set_timeframe(
     await ChartSettingsORM.create(
         db,
         user_id=user.id,
-        symbol_id=symbol['id'],
+        symbol_id=symbol["id"],
         timeframe=data.timeframe,
         show_order_icons=data.show_order_icons,
     )
-    return True
-
+    return BaseRespone(retMsg="OK")

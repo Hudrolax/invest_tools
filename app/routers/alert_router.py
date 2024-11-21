@@ -29,6 +29,7 @@ class AlertCreate(BaseModel):
     price: Decimal
     trigger: Triggers
     comment: str | None = None
+    line_id: int | None = None
 
 
 class AlertUpdate(BaseModel):
@@ -40,6 +41,7 @@ class AlertUpdate(BaseModel):
     triggered_at: datetime | None = None
     is_active: bool | None = None
     is_sent: bool | None = None
+    line_id: int | None = None
 
 
 class Alert(AlertBase):
@@ -49,6 +51,7 @@ class Alert(AlertBase):
     triggered_at: datetime | None = None
     is_active: bool = True
     is_sent: bool = False
+    line_id: int | None = None
 
 router = APIRouter(
     prefix="/alerts",

@@ -12,7 +12,6 @@ import time
 from .exceptions import TickHandleError
 from .binance import BinanceBroker
 from .bybit import BybitBroker, BYBIT_BROKERS
-from .investing_com import InvestingComBroker
 from core.config import (
     BINANCE_API_SECRET,
     BINANCE_API_KEY,
@@ -53,7 +52,7 @@ async def unauthorizrd_request(
             elif broker == 'Binance-CM-Futures':
                 url = BINANCE_CM_API + endpoint
             elif broker in BYBIT_BROKERS:
-                url = BYBIT_API_ENDPOINT
+                url = BYBIT_API_ENDPOINT + endpoint
             else:
                 raise ValueError(f'unknowk broker "{broker}"')
             
@@ -118,9 +117,9 @@ async def authorized_request(
         if broker in BYBIT_BROKERS:
             time_stamp=str(int(time.time() * 10 ** 3))
             if http_method.upper() == 'GET':
-                param_str= str(time_stamp) + BYBIT_API_KEY + '5000' + query_string
+                param_str= str(time_stamp) + BYBIT_API_KEY + '60000' + query_string
             else:
-                param_str= str(time_stamp) + BYBIT_API_KEY + '5000' + json.dumps(params)
+                param_str= str(time_stamp) + BYBIT_API_KEY + '60000' + json.dumps(params)
 
             hash = hmac.new(bytes(secret, "utf-8"), param_str.encode("utf-8"),hashlib.sha256)
             signature = hash.hexdigest()
@@ -128,7 +127,7 @@ async def authorized_request(
                 "X-BAPI-API-KEY": BYBIT_API_KEY,
                 "X-BAPI-SIGN": signature,
                 "X-BAPI-TIMESTAMP": time_stamp,
-                "X-BAPI-RECV-WINDOW": '5000',
+                "X-BAPI-RECV-WINDOW": '60000',
                 'Content-Type': 'application/json',
             }
         else:

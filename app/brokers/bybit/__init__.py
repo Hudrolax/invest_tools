@@ -1,9 +1,17 @@
 from typing import Literal
 
+OrderSide = Literal["Sell", "Buy"]
+OrderType = Literal["Market", "Limit"]
+MarketUnit = Literal["baseCoin", "quoteCoin"]
+TriggerDirection = Literal[0, 1]
+TriggerBy = Literal["LastPrice", "IndexPrice", "MarkPrice"]
 BybitBroker = Literal["Bybit-spot", "Bybit_perpetual", "Bybit-inverse"]
 BYBIT_BROKERS = ["Bybit-spot", "Bybit_perpetual", "Bybit-inverse"]
 BybitTimeframe = Literal["1", "3", "5", "15", "30", "60", "120", "240", "360", "720", "D", "W", "M"]
 BybitStreamType = Literal["Ticker", "Kline", "Trade", "position", "order"]
+SymbolStatus = Literal["PreLaunch", "Trading", "Delivering", "Closed"]
+ContractType = Literal['InversePerpetual', 'LinearPerpetual', 'LinearFutures', 'InverseFutures']
+
 BYBIT_BROKER_MARKET_TYPE = {
     "Bybit-spot": "spot",
     "Bybit_perpetual": "linear",
