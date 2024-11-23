@@ -1,7 +1,6 @@
 import os
 import traceback
 import logging
-from datetime import datetime
 
 def get_env_value(name: str) -> str:
     value = os.getenv(name)
@@ -9,6 +8,13 @@ def get_env_value(name: str) -> str:
         raise ValueError(
             f'{name} environment variable should be filled in the OS.')
     return value
+
+
+def log_error_with_traceback(logger: logging.Logger, ex: Exception) -> None:
+    if logger is not None:
+        error_message = f"Exception occurred: {type(ex).__name__}, {ex.args}\n"
+        error_message += traceback.format_exc()
+        logger.error(error_message)
 
 
 def async_traceback_errors(logger: logging.Logger | None = None, raise_error: bool = True):

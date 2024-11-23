@@ -30,7 +30,7 @@ class OrderORM(BaseDBObject):
     qty = Column(DECIMAL(precision=20, scale=8), nullable=False)
     side = Column(String, nullable=False, index=True)
     order_status = Column(String, nullable=False, index=True)
-    create_type = Column(String, nullable=False, index=True)
+    create_type = Column(String, nullable=True, index=True)
     cancel_type = Column(String, nullable=True, index=True)
     avg_price = Column(DECIMAL(precision=20, scale=8), nullable=True)
     leaves_qty = Column(DECIMAL(precision=20, scale=8), nullable=False, default=Decimal(0))

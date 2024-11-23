@@ -11,6 +11,7 @@ from brokers.bybit import BYBIT_MARKET_TYPE_BROKER, BybitBroker
 from models.broker import BrokerORM
 from models.symbol import SymbolORM
 from models.order import OrderORM
+from utils import log_error_with_traceback
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ async def create_refresh_orders_in_db(
                 symbol_id=symbol_instance.id,
                 broker_order_id=order["orderId"],
                 side=order["side"],
-                create_type=order["createType"],
+                create_type=order.get("createType"),
                 order_type=order.get("orderType"),
                 stop_order_type=order.get("stopOrderType"),
                 tpsl_mode=order.get("tpslMode"),
@@ -77,14 +78,19 @@ async def handle_orders(
     categories = set([order["category"] for order in orders_all])
     symbols = set([order["symbol"] for order in orders_all])
 
-    async with sessionmanager.session() as db:
-        for category in categories:
-            for symbol in symbols:
-                orders = [order for order in orders_all if order["category"] == category and order["symbol"] == symbol]
-                await create_refresh_orders_in_db(
-                    db,
-                    orders,
-                    broker=BYBIT_MARKET_TYPE_BROKER[category],  # type: ignore
-                    symbol=symbol,
-                )
+    try:
+        async with sessionmanager.session() as db:
+            for category in categories:
+                for symbol in symbols:
+                    orders = [order for order in orders_all if order["category"] == category and order["symbol"] == symbol]
+                    await create_refresh_orders_in_db(
+                        db,
+                        orders,
+                        broker=BYBIT_MARKET_TYPE_BROKER[category],  # type: ignore
+                        symbol=symbol,
+                    )
+    except Exception as ex:
+        log_error_with_traceback(logger, ex)
+        raise
+
     logger.info('orders updated with ws')
