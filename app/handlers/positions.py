@@ -58,7 +58,6 @@ async def refresh_positions_in_db(
         await PositionORM.create(
             db,
             user_id=1,
-            broker_id=broker.id,
             symbol_id=symbol_instance.id,
             side=position["side"],
             size=Decimal(position["size"]),

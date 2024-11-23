@@ -29,8 +29,6 @@ services:
       - ./app:/app
     depends_on:
       - db
-    networks:
-      - invest_tools_network
 
   db:
     image: postgres:15-alpine
@@ -46,8 +44,6 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASS}
-    networks:
-      - invest_tools_network
 
   adminer:
     image: adminer
@@ -59,8 +55,6 @@ services:
         max-file: "3"
     depends_on:
       - db
-    networks:
-      - invest_tools_network
 
   proxy:
     build:
@@ -75,12 +69,6 @@ services:
       - backend
     ports:
       - 8000:8000
-    networks:
-      - invest_tools_network
 
 volumes:
   db-data:
-
-networks:
-  invest_tools_network:
-    external: true
