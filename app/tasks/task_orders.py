@@ -150,7 +150,6 @@ async def task_get_orders(
                     await OrderORM.create(
                         db,
                         user_id=1,
-                        broker_id=broker.id,
                         symbol_id=symbol.id,
                         broker_order_id=order["orderId"],
                         side=order["side"],
@@ -248,7 +247,6 @@ async def task_get_orders(
                             await OrderORM.create(
                                 db,
                                 user_id=1,
-                                broker_id=broker.id,
                                 symbol_id=symbol.id,
                                 broker_order_id=order["orderId"],
                                 side=order["side"],
