@@ -38,6 +38,9 @@ async def refresh_positions_in_db(
             )
 
         for position in positions:
+            if not position.get('size'):
+                continue
+
             try:
                 broker_name = (
                     broker if broker else BYBIT_MARKET_TYPE_BROKER[position["category"]]
