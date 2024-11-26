@@ -5,6 +5,7 @@ import logging
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models.user import UserORM
 from core.db import sessionmanager
 from brokers.bybit import BYBIT_MARKET_TYPE_BROKER, BybitBroker
 
@@ -12,6 +13,7 @@ from models.broker import BrokerORM
 from models.symbol import SymbolORM
 from models.order import OrderORM
 from utils import log_error_with_traceback
+from alert_bot_connector.connector import send_alert
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,20 @@ async def create_refresh_orders_in_db(
         try:
             order_obj = await OrderORM.get_by_broker_order_id(db, order["orderId"])
             await OrderORM.update(db, id=order_obj.id, **kwargs)
+            user = await UserORM.get(db, id=order_obj.user_id)
+            symbol = await SymbolORM.get(db, id=order_obj.symbol_id)
+            if kwargs.get('orderStatus') == 'Filled':
+                await send_alert(
+                    chat_id=user.telegram_id,
+                    text=f'Ордер {order_obj.side} {order_obj.qty} {symbol.name} исполнен по цене {order_obj.avg_price}'
+                )
+            elif kwargs.get('orderStatus') == 'PartiallyFilled':
+                await send_alert(
+                    chat_id=user.telegram_id,
+                    text=f'Ордер {order_obj.side} {order_obj.qty} {symbol.name} частично исполнен по цене {order_obj.avg_price}'
+                )
+                logger.info(f'Order alert {symbol.name} sent to {user.username}')
+
         except NoResultFound:
             await OrderORM.create(
                 db,

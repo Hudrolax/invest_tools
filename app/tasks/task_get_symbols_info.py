@@ -186,4 +186,3 @@ async def task_get_symbols_info(
             await asyncio.sleep(86400)
         except Exception as ex:
             logger.error(f"Error in task_get_positions: {str(ex)}")
-            raise

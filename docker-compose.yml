@@ -24,6 +24,8 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - BYBIT_API_KEY=${BYBIT_API_KEY}
       - BYBIT_API_SECRET=${BYBIT_API_SECRET}
+      - ALERT_BOT_ENDPOINT=${ALERT_BOT_ENDPOINT}
+      - ALERT_BOT_TOKEN=${ALERT_BOT_TOKEN}
 
     volumes:
       - ./app:/app

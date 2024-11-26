@@ -168,30 +168,3 @@ class AlertORM(BaseDBObject):
 
         result = await db.execute(query)
         return list(result.scalars().all()) 
-
-    @classmethod
-    async def get_filtered_alerts_unauthorized(
-        cls,
-        db: AsyncSession,
-        broker_name: str | None = None,
-        symbol_name: str | None = None,
-        is_active: bool | None = None,
-        is_sent: bool | None = None,
-        is_triggered: bool | None = None
-    ) -> list['AlertORM']:
-        query = select(AlertORM).options(joinedload(AlertORM.symbol))
-        if broker_name is not None:
-            query = query.join(AlertORM.symbol).join(SymbolORM.broker).filter(BrokerORM.name == broker_name)
-        if symbol_name is not None:
-            query = query.join(AlertORM.symbol).filter(SymbolORM.name == symbol_name)
-        if is_active is not None:
-            query = query.filter(AlertORM.is_active == is_active)
-        if is_sent is not None:
-            query = query.filter(AlertORM.is_sent == is_sent)
-        if is_triggered is not None:
-            # Проверяем наличие или отсутствие поля triggered_at
-            condition = AlertORM.triggered_at.isnot(None) if is_triggered else AlertORM.triggered_at.isnot(None)
-            query = query.filter(condition)
-
-        result = await db.execute(query)
-        return list(result.scalars().all()) 

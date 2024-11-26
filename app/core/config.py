@@ -111,3 +111,7 @@ BYBIT_TRADE_WSS = 'wss://stream.bybit.com/v5/trade'
 
 # OpenAI API key
 OPENAI_API_KEY = get_env_value('OPENAI_API_KEY')
+
+# Alert bot
+ALERT_BOT_ENDPOINT = get_env_value('ALERT_BOT_ENDPOINT')
+ALERT_BOT_TOKEN = get_env_value('ALERT_BOT_TOKEN')
