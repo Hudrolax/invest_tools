@@ -11,6 +11,7 @@ from brokers.binance import BinanceBroker
 from brokers.bybit import BybitBroker
 from models.alert import AlertORM
 from alert_bot_connector.connector import send_alert
+from utils import format_significant
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,11 @@ async def handle_alerts(
             )
             if above_trigger or below_trigger:
                 try:
+                    price = format_significant(record['price'])
                     trigger = "выше"
                     if below_trigger:
                         trigger = "ниже"
-                    text = f"{symbol} {trigger} {record['price']}"
+                    text = f"{symbol} {trigger} {price}"
                     if record['comment']:
                         text += f' {record['comment']}'
                     await send_alert(

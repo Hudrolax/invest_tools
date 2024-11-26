@@ -1,6 +1,7 @@
 import os
 import traceback
 import logging
+from decimal import Decimal
 
 def get_env_value(name: str) -> str:
     value = os.getenv(name)
@@ -48,3 +49,18 @@ def check_uppercase(s: str) -> None:
     if not s.isupper():
         raise StringNotUpperCaseError(f"Строка '{s}' не в верхнем регистре.")
 
+def format_significant(value):
+    # Преобразуем значение в Decimal для точности
+    if isinstance(value, (int, float, str)):
+        value = Decimal(value)
+    elif not isinstance(value, Decimal):
+        raise TypeError("Input must be int, float, str, or Decimal")
+
+    # Убираем лишние нули и форматируем
+    result = str(value.normalize())
+    
+    # Убираем ненужный знак "E", если число большое/маленькое
+    if "E" in result:
+        result = format(value, 'f').rstrip('0').rstrip('.')
+    
+    return result
