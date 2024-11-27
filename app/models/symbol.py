@@ -25,9 +25,7 @@ class SymbolORM(BaseDBObject):
     __tablename__ = "symbols"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
-    broker_id = Column(
-        Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False
-    )
+    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False)
     rate = Column(DECIMAL(precision=20, scale=8), default=Decimal(1))
     last_update_time = Column(TIMESTAMP, nullable=True)
     active_wss = Column(BOOLEAN, nullable=True, default=False)
@@ -56,6 +54,7 @@ class SymbolORM(BaseDBObject):
     copy_trading = Column(String, nullable=True)
     upper_funding_rate = Column(DECIMAL, nullable=True)
     lower_funding_rate = Column(DECIMAL, nullable=True)
+    klines_max_count = Column(Integer, nullable=True, default=200)
     __table_args__ = (
         UniqueConstraint("name", "broker_id", name="_symbol_name_broker_id_uc"),
     )
@@ -64,12 +63,8 @@ class SymbolORM(BaseDBObject):
     alerts = relationship("AlertORM", back_populates="symbol", cascade="all, delete")
     lines = relationship("LineORM", back_populates="symbol", cascade="all, delete")
     orders = relationship("OrderORM", back_populates="symbol", cascade="all, delete")
-    positions = relationship(
-        "PositionORM", back_populates="symbol", cascade="all, delete"
-    )
-    chart_settings = relationship(
-        "ChartSettingsORM", back_populates="symbol", cascade="all, delete"
-    )
+    positions = relationship("PositionORM", back_populates="symbol", cascade="all, delete")
+    chart_settings = relationship("ChartSettingsORM", back_populates="symbol", cascade="all, delete")
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -78,15 +73,8 @@ class SymbolORM(BaseDBObject):
         return await SymbolORM.delete(db, self.id)  # type: ignore
 
     @classmethod
-    async def get_by_name(cls, db: AsyncSession, name: str) -> "SymbolORM":
-        result = (await db.scalars(select(cls).where(cls.name == name))).first()
-        if not result:
-            raise NoResultFound(f"symbol with name {name} not found")
-        return result
-
-    @classmethod
     async def get_by_name_and_broker(
-        cls, db: AsyncSession, name: str, broker_name: str | Column[str]
+        cls, db: AsyncSession, name: str | None, broker_name: str | Column[str] | None
     ) -> "SymbolORM":
         result = (
             await db.scalars(

@@ -27,7 +27,7 @@ async def task_get_usd_rub_rate(
                     broker = await BrokerORM.create(db, name=broker_name)
                 
                 try:
-                    symbol = await SymbolORM.get_by_name(db, symbol_name)
+                    symbol = await SymbolORM.get_by_name_and_broker(db, name=symbol_name, broker_name=broker_name)
                 except NoResultFound:
                     symbol = await SymbolORM.create(db, name=symbol_name, broker_id=broker.id)
 

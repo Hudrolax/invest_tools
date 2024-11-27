@@ -92,7 +92,7 @@ async def ticker_stream(
                 if data.get("success") is not None:
                     symbol_text = f" {symbol}" if symbol else ""
                     if data["success"]:
-                        print(f"Подписались на поток {broker} {stream_type}{symbol_text}")
+                        print(f"Подписались на поток {broker} {stream_type}{symbol_text} {timeframe}")
                     else:
                         print(f"Ошибка подписи на поток {broker} {stream_type}{symbol_text}:\n{data}")
 
@@ -103,7 +103,7 @@ async def ticker_stream(
 
                         # Обработка полученных данных
                         data = json.loads(data)
-                        await handler(broker=broker, symbol=symbol, data=data, stream_type=stream_type)
+                        await handler(broker=broker, symbol=symbol, data=data, stream_type=stream_type, timeframe=timeframe)
 
                         time_delta = (datetime.now() - ping_time).total_seconds()
                         if time_delta >= 30:

@@ -7,6 +7,7 @@ from core.db import DatabaseSessionManager
 import logging
 from typing import Callable, Self
 from datetime import datetime, timedelta, timezone
+from itertools import product
 
 from utils import async_traceback_errors
 from brokers.binance import (
@@ -122,10 +123,13 @@ async def get_actual_streams(
             BybitStream(
                 broker=symbol.broker.name,
                 symbol=str(symbol.name),
-                stream_type="Trade",
+                stream_type="Kline",
+                timeframe=interval,  # type: ignore
             )
-            for symbol in symbols
-            if symbol.broker.name in BYBIT_BROKERS
+            for symbol, interval in product(
+                [symbol for symbol in symbols if symbol.broker.name in BYBIT_BROKERS],
+                ['60', '240', 'D', 'W', 'M']
+            )
         ],
         BybitStream(
             broker="Bybit-inverse",

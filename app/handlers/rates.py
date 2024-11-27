@@ -20,4 +20,5 @@ async def handle_rates(
 
     async with sessionmanager.session() as db:
         symbol_instance = await SymbolORM.get_by_name_and_broker(db, symbol, broker)
-        await SymbolORM.update(db, symbol_instance.id, rate=last_price, last_update_time=datetime.now())
+        if symbol_instance.rate != Decimal(last_price):  # type: ignore
+            await SymbolORM.update(db, symbol_instance.id, rate=last_price, last_update_time=datetime.now())

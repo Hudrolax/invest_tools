@@ -14,7 +14,7 @@ from models.lines import LineORM
 from .base_object import BaseDBObject
 
 
-Triggers = Literal['above', 'below']
+Triggers = Literal['above', 'below', 'cross']
 
 
 class AlertORM(BaseDBObject):
@@ -117,10 +117,11 @@ class AlertORM(BaseDBObject):
                     or isinstance(kwargs['price'], float):
                     kwargs['price'] = Decimal(kwargs['price'])
             
-            if kwargs.get('symbol_name'):
+            if kwargs.get('symbol_name') and kwargs.get('broker_name'):
                 symbol_name = kwargs.pop('symbol_name')
+                broker_name = kwargs.pop('broker_name')
                 try:
-                    symbol = await SymbolORM.get_by_name(db, symbol_name)
+                    symbol = await SymbolORM.get_by_name_and_broker(db, name=symbol_name, broker_name=broker_name)
                     kwargs['symbol_id'] = symbol.id
                 except NoResultFound:
                     raise ValueError(f'Symbol with name {symbol_name} not found')
