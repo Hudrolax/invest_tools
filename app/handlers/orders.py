@@ -53,20 +53,21 @@ async def create_refresh_orders_in_db(
         )
         try:
             order_obj = await OrderORM.get_by_broker_order_id(db, order["orderId"])
+            old_status = order_obj.order_status
             await OrderORM.update(db, id=order_obj.id, **kwargs)
             user = await UserORM.get(db, id=order_obj.user_id)
             symbol = await SymbolORM.get(db, id=order_obj.symbol_id)
-            if kwargs.get('orderStatus') == 'Filled':
+            if order.get("orderStatus") == "Filled":
                 await send_alert(
                     chat_id=user.telegram_id,
-                    text=f'Ордер {order_obj.side} {order_obj.qty} {symbol.name} исполнен по цене {order_obj.avg_price}'
+                    text=f'Ордер {order_obj.side} {order_obj.qty} {symbol.name} исполнен по цене {order.get("avgPrice")}',
                 )
-            elif kwargs.get('orderStatus') == 'PartiallyFilled':
+            elif order.get("orderStatus") == "PartiallyFilled" and old_status != order.get("orderStatus"):
                 await send_alert(
                     chat_id=user.telegram_id,
-                    text=f'Ордер {order_obj.side} {order_obj.qty} {symbol.name} частично исполнен по цене {order_obj.avg_price}'
+                    text=f'Ордер {order_obj.side} {order_obj.qty} {symbol.name} частично исполнен по цене {order.get("avgPrice")}',
                 )
-                logger.info(f'Order alert {symbol.name} sent to {user.username}')
+                logger.info(f"Order alert {symbol.name} sent to {user.username}")
 
         except NoResultFound:
             await OrderORM.create(
@@ -98,7 +99,9 @@ async def handle_orders(
         async with sessionmanager.session() as db:
             for category in categories:
                 for symbol in symbols:
-                    orders = [order for order in orders_all if order["category"] == category and order["symbol"] == symbol]
+                    orders = [
+                        order for order in orders_all if order["category"] == category and order["symbol"] == symbol
+                    ]
                     await create_refresh_orders_in_db(
                         db,
                         orders,
@@ -109,4 +112,4 @@ async def handle_orders(
         log_error_with_traceback(logger, ex)
         raise
 
-    logger.info('orders updated with ws')
+    logger.info("orders updated with ws")

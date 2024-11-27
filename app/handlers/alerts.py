@@ -21,19 +21,17 @@ async def handle_alerts(
     symbol: str,
     last_price: Decimal | str | int | float,
 ) -> None:
-    _last_price: Decimal = (
-        last_price if isinstance(last_price, Decimal) else Decimal(last_price)
-    )
+    _last_price: Decimal = last_price if isinstance(last_price, Decimal) else Decimal(last_price)
 
     async with sessionmanager.session() as db:
         query = (
             select(
-                AlertORM.id.label('id'),
-                AlertORM.trigger.label('trigger'),
-                AlertORM.price.label('price'),
-                AlertORM.comment.label('comment'),
-                UserORM.username.label('username'),
-                UserORM.telegram_id.label('telegram_id'),
+                AlertORM.id.label("id"),
+                AlertORM.trigger.label("trigger"),
+                AlertORM.price.label("price"),
+                AlertORM.comment.label("comment"),
+                UserORM.username.label("username"),
+                UserORM.telegram_id.label("telegram_id"),
             )
             .select_from(AlertORM)
             .join(
@@ -48,37 +46,32 @@ async def handle_alerts(
                 UserORM,
                 (UserORM.id == AlertORM.user_id),
             )
-            .where(
-                (AlertORM.triggered_at.is_(None))
-                & (AlertORM.is_active)
-                & (AlertORM.is_sent == False)
-            )
+            .where((AlertORM.triggered_at.is_(None)) & (AlertORM.is_active) & (AlertORM.is_sent == False))
         )
         results = (await db.execute(query)).mappings().all()
         for record in results:
-            above_trigger = bool(
-                record['trigger'] == "above" and _last_price >= record['price']
-            )
-            below_trigger = bool(
-                record['trigger'] == "below" and _last_price <= record['price']
-            )
+            above_trigger = bool(record["trigger"] == "above" and _last_price >= record["price"])
+            below_trigger = bool(record["trigger"] == "below" and _last_price <= record["price"])
             if above_trigger or below_trigger:
                 try:
-                    price = format_significant(record['price'])
+                    price = format_significant(record["price"])
                     trigger = "выше"
                     if below_trigger:
                         trigger = "ниже"
                     text = f"{symbol} {trigger} {price}"
-                    if record['comment']:
-                        text += f' {record['comment']}'
+                    if record["comment"]:
+                        text += f" {record['comment']}"
                     await send_alert(
-                        chat_id=record['telegram_id'],
+                        chat_id=record["telegram_id"],
                         text=text,
                     )
                     logger.info(f"Price alert {symbol} sent to {record['username']}")
                     await AlertORM.update(
-                        db, id=record['id'], triggered_at=datetime.now(),
-                        is_sent=True, is_active=False,
+                        db,
+                        id=record["id"],
+                        triggered_at=datetime.now(),
+                        is_sent=True,
+                        is_active=False,
                     )
                 except Exception as ex:
                     logger.error(str(ex))

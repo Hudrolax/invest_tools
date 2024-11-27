@@ -99,6 +99,7 @@ class OrderBase(BaseModel):
     price: str
     avg_price: str
     qty: str
+    leaves_qty: str
     cum_exec_qty: str
     cum_exec_fee: str
     take_profit: str | None = None
@@ -110,6 +111,7 @@ class OrderBase(BaseModel):
         "price",
         "avg_price",
         "qty",
+        "leaves_qty",
         "cum_exec_qty",
         "cum_exec_fee",
         "take_profit",
@@ -178,6 +180,7 @@ async def api_get_orders(
             OrderORM.price,
             OrderORM.avg_price,
             OrderORM.qty,
+            OrderORM.leaves_qty,
             OrderORM.cum_exec_qty,
             OrderORM.cum_exec_fee,
             OrderORM.take_profit,
