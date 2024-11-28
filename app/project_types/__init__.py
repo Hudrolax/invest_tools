@@ -1,6 +1,9 @@
 from pydantic import BaseModel, validator
 from decimal import Decimal
 from datetime import datetime
+from typing import Literal
+
+LineStyle = Literal['solid', 'dashed', 'dotted']
 
 class Kline(BaseModel):
     start: datetime

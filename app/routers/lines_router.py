@@ -6,6 +6,8 @@ from sqlalchemy.exc import NoResultFound, IntegrityError
 from datetime import datetime
 from decimal import Decimal
 
+from sqlalchemy.sql.functions import coalesce
+
 from routers import check_token
 from core.db import get_db
 from models.lines import LineORM, LINE_TYPES
@@ -13,6 +15,7 @@ from models.user import UserORM
 from models.symbol import SymbolORM
 from models.symbol import BrokerORM
 from . import format_decimal
+from project_types import LineStyle
 
 
 class LineBase(BaseModel):
@@ -25,6 +28,8 @@ class LineBase(BaseModel):
     color: str
     width: str
     created_at: int
+    locked: bool
+    style: LineStyle
 
     @validator("x0", "x1", "created_at", pre=True, always=True)
     def parse_datetime(cls, value):
@@ -55,6 +60,7 @@ class LineCreate(BaseModel):
     label: str | None = None
     color: str = "white"
     width: int = 1
+    style: LineStyle = 'solid'
 
     @validator("line_type", pre=True, always=True)
     def parse_line_type(cls, value):
@@ -71,6 +77,8 @@ class LineUpdate(BaseModel):
     y1: str
     color: str
     width: int
+    locked: bool
+    style: LineStyle
     label: str | None = None
 
 
@@ -112,6 +120,8 @@ async def post_line(
             y1=y1,
             color=data.color,
             width=int(data.width) if data.width else None,
+            locked=False,
+            style=data.style,
         )
 
         return True
@@ -145,6 +155,8 @@ async def get_lines(
             LineORM.color,
             LineORM.width,
             LineORM.created_at,
+            coalesce(LineORM.locked, False).label('locked'),
+            coalesce(LineORM.style, 'solid').label('style'),
         )
         .select_from(LineORM)
         .join(BrokerORM, BrokerORM.name == broker_name)
@@ -196,6 +208,8 @@ async def update_line(
             y1=y1,
             color=data.color,
             width=int(data.width) if data.width else None,
+            locked=data.locked,
+            style=data.style,
         )
         return True
     except NoResultFound:

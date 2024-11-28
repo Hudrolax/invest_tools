@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    BOOLEAN,
     Column,
     Integer,
     TIMESTAMP,
@@ -47,6 +48,8 @@ class LineORM(BaseDBObject):
     color = Column(String, nullable=False, default="#ffffff")
     width = Column(Integer, nullable=False, default=1)
     created_at = Column(TIMESTAMP, nullable=False, index=True)
+    locked = Column(BOOLEAN, nullable=True, default=False)
+    style = Column(String, nullable=True, default='solid')
 
     symbol = relationship("SymbolORM", back_populates="lines")
     user = relationship("UserORM", back_populates="lines")
@@ -59,21 +62,21 @@ class LineORM(BaseDBObject):
     async def create(cls, db: AsyncSession, **kwargs):
         try:
             try:
-                symbol_name = kwargs.pop('symbol_name')
+                symbol_name = kwargs.pop("symbol_name")
             except KeyError:
-                raise ValueError('symbol_name not passed')
+                raise ValueError("symbol_name not passed")
             try:
-                broker_name = kwargs.pop('broker_name')
+                broker_name = kwargs.pop("broker_name")
             except KeyError:
-                raise ValueError('broker_name not passed')
+                raise ValueError("broker_name not passed")
 
             try:
                 broker = await BrokerORM.get_by_name(db, broker_name)
             except NoResultFound:
-                raise ValueError(f'Broker with name {broker_name} not found')
+                raise ValueError(f"Broker with name {broker_name} not found")
 
-            symbol = await SymbolORM.get_or_create(db, symbol_name, broker_id=broker.id) # type: ignore
-            kwargs['symbol_id'] = symbol.id
+            symbol = await SymbolORM.get_or_create(db, symbol_name, broker_id=broker.id)  # type: ignore
+            kwargs["symbol_id"] = symbol.id
 
             line = cls(**kwargs)
             line.created_at = datetime.now()
@@ -83,7 +86,6 @@ class LineORM(BaseDBObject):
 
             if isinstance(line.y1, int) or isinstance(line.y1, str) or isinstance(line.y1, float):
                 line.y0 = Decimal(line.y1)
-
 
             db.add(line)
             await db.flush()
@@ -100,24 +102,22 @@ class LineORM(BaseDBObject):
             if not existing_entry:
                 raise NoResultFound
 
-            if kwargs.get('x0'):
-                if isinstance(kwargs['x0'], int):
-                    kwargs['x0'] = datetime.fromtimestamp(kwargs['x0'])
+            if kwargs.get("x0"):
+                if isinstance(kwargs["x0"], int):
+                    kwargs["x0"] = datetime.fromtimestamp(kwargs["x0"])
 
-            if kwargs.get('x1'):
-                if isinstance(kwargs['x1'], int):
-                    kwargs['x1'] = datetime.fromtimestamp(kwargs['x1'])
+            if kwargs.get("x1"):
+                if isinstance(kwargs["x1"], int):
+                    kwargs["x1"] = datetime.fromtimestamp(kwargs["x1"])
 
-            if kwargs.get('y0'):
-                if isinstance(kwargs['y0'], int) or isinstance(kwargs['y0'], str) \
-                    or isinstance(kwargs['y0'], float):
-                    kwargs['y0'] = Decimal(kwargs['y0'])
+            if kwargs.get("y0"):
+                if isinstance(kwargs["y0"], int) or isinstance(kwargs["y0"], str) or isinstance(kwargs["y0"], float):
+                    kwargs["y0"] = Decimal(kwargs["y0"])
 
-            if kwargs.get('y1'):
-                if isinstance(kwargs['y1'], int) or isinstance(kwargs['y1'], str) \
-                    or isinstance(kwargs['y0'], float):
-                    kwargs['y1'] = Decimal(kwargs['y1'])
-            
+            if kwargs.get("y1"):
+                if isinstance(kwargs["y1"], int) or isinstance(kwargs["y1"], str) or isinstance(kwargs["y0"], float):
+                    kwargs["y1"] = Decimal(kwargs["y1"])
+
             # обновление полей записи
             for attr, value in kwargs.items():
                 setattr(existing_entry, attr, value)
@@ -136,11 +136,7 @@ class LineORM(BaseDBObject):
         symbol_name: str,
     ) -> list["LineORM"]:
 
-        query = (
-            select(cls)
-            .join(SymbolORM, SymbolORM.name == symbol_name)
-            .where(cls.usr_id == user_id)
-        )
+        query = select(cls).join(SymbolORM, SymbolORM.name == symbol_name).where(cls.usr_id == user_id)
 
         result = await db.scalars(query)
         return list(result.all())
