@@ -38,7 +38,7 @@ async def refresh_positions_in_db(
             )
 
         for position in positions:
-            if not position.get('size'):
+            if position.get('size', 0) == 0:
                 continue
 
             try:
