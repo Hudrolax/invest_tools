@@ -85,7 +85,7 @@ class KlineORM(BaseDBObject):
             symbol = await SymbolORM.get_by_id(db, id=symbol_id)
             max_klines_count = symbol.klines_max_count if symbol.klines_max_count else 200
             if len(klines) > max_klines_count:
-                klines_for_delete = klines[0 : -symbol.klines_max_count]
+                klines_for_delete = klines[0 : -max_klines_count]
                 for del_kline in klines_for_delete:
                     await KlineORM.delete(
                         db,
