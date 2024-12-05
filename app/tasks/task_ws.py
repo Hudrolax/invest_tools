@@ -234,7 +234,7 @@ async def task_run_market_streams(
                         await actual_stream.run_stream(ws_ticker_handler)
                         streams.append(actual_stream)
                         logger.info(f"run stream {actual_stream}")
-                        await asyncio.sleep(10)
+                        await asyncio.sleep(1)
 
         except Exception as ex:
             logger.critical(str(ex))

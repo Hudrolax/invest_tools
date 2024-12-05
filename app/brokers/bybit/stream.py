@@ -127,4 +127,4 @@ async def ticker_stream(
             raise e
         except Exception as e:
             log_error_with_traceback(logger, e)
-            await asyncio.sleep(60)  # waiting before reconnect
+            await asyncio.sleep(10)  # waiting before reconnect
