@@ -80,7 +80,7 @@ class KlineORM(BaseDBObject):
             .where((KlineORM.interval == interval) & (KlineORM.symbol_id == symbol_id))
             .order_by(KlineORM.start)
         )
-        klines = (await db.execute(query)).all()
+        klines = (await db.execute(query)).scalars().all()
         if klines:
             symbol = await SymbolORM.get_by_id(db, id=symbol_id)
             max_klines_count = symbol.klines_max_count if symbol.klines_max_count else 200
