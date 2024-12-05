@@ -32,6 +32,7 @@ from tasks import (
     task_get_positions,
     task_remove_old_orders,
     task_get_symbols_info,
+    task_get_old_orders,
 )
 import core.config
 
@@ -104,6 +105,7 @@ async def main() -> None:
         task_run_market_streams(stop_event, sessionmanager),
         # task_update_market_data(stop_event),
         task_remove_old_checklist_items(stop_event, sessionmanager),
+        task_get_old_orders(stop_event, sessionmanager),
         task_get_orders(stop_event, sessionmanager),
         task_get_usd_rub_rate(stop_event, sessionmanager),
         task_get_positions(stop_event, sessionmanager),
