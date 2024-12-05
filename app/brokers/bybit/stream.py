@@ -9,7 +9,7 @@ import websockets
 from datetime import datetime
 import time
 
-from utils import async_traceback_errors
+from utils import async_traceback_errors, log_error_with_traceback
 from brokers.bybit import BybitBroker, BybitTimeframe, BybitStreamType, BYBIT_BROKER_MARKET_TYPE
 
 from core.config import (
@@ -126,5 +126,5 @@ async def ticker_stream(
         except asyncio.CancelledError as e:
             raise e
         except Exception as e:
-            logger.critical(f"An unexpected error from strategy: {e}")
-            await asyncio.sleep(1)  # waiting before reconnect
+            log_error_with_traceback(logger, e)
+            await asyncio.sleep(60)  # waiting before reconnect
