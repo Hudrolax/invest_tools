@@ -122,12 +122,13 @@ async def ticker_stream(
             websockets.exceptions.ConnectionClosedOK,
         ):
             logger.warning("Connection closed, retrying...")
-            await asyncio.sleep(1)  # waiting before reconnect
+            await asyncio.sleep(3)  # waiting before reconnect
         except asyncio.CancelledError as e:
             raise e
         except Exception as e:
             log_error_with_traceback(logger, e)
-            if 'Error from cloudfront' in str(e):
-                await asyncio.sleep(300)
+            if 'cloudfront' in str(e).lower():
+                print('cloudfront error. Witing 30 minutes.')
+                await asyncio.sleep(60*30)
             else:
                 await asyncio.sleep(10)

@@ -65,7 +65,7 @@ async def unauthorizrd_request(
 
         except aiohttp.ClientError as e:
             logger.warning(f"An error occurred: {e}")
-            await asyncio.sleep(2)  # pause before next attemption
+            await asyncio.sleep(5)  # pause before next attemption
         except Exception as e:
             error_message = f"Exception occurred: {type(e).__name__}, {e.args}\n"
             error_message += traceback.format_exc()
