@@ -120,6 +120,7 @@ async def ticker_stream(
         except (
             websockets.exceptions.ConnectionClosedError,
             websockets.exceptions.ConnectionClosedOK,
+            websockets.exceptions.InvalidStatusCode
         ):
             logger.warning("Connection closed, retrying...")
             await asyncio.sleep(3)  # waiting before reconnect
@@ -132,3 +133,4 @@ async def ticker_stream(
                 await asyncio.sleep(60*30)
             else:
                 await asyncio.sleep(10)
+                print('sleep 10 sec')
