@@ -22,7 +22,7 @@ Base = declarative_base()
 
 class DatabaseSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str, Any] = {}):
-        self.engine = create_async_engine(host, pool_size=100, max_overflow=200, **engine_kwargs)
+        self.engine = create_async_engine(host, pool_size=10000, max_overflow=20000, **engine_kwargs)
         self.sessionmaker = async_sessionmaker(
             autocommit=False, bind=self.engine)
 
