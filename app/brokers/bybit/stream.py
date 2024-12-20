@@ -127,10 +127,9 @@ async def ticker_stream(
             raise e
         except Exception as e:
             log_error_with_traceback(logger, e)
-            if 'cloudfront' in str(e).lower():
+            if '403' in str(e).lower():
                 print('cloudfront error. Witing 30 minutes.')
                 await asyncio.sleep(60*30)
             else:
                 await asyncio.sleep(10)
                 print('sleep 10 sec')
-            print('ex: ', str(e))
