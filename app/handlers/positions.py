@@ -99,6 +99,7 @@ async def refresh_positions_in_db(
 
     except Exception as ex:
         log_error_with_traceback(logger, ex)
+        raise
 
 
 async def handle_positions(

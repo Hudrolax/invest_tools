@@ -132,4 +132,3 @@ async def ticker_stream(
                 await asyncio.sleep(60*30)
             else:
                 await asyncio.sleep(10)
-                print('sleep 10 sec')

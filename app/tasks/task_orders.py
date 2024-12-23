@@ -29,6 +29,16 @@ async def fetch_orders_and_history(broker_name: BybitBroker, symbol_name: str) -
 
 
 async def grab_old_orders(broker_name: BybitBroker, symbol_name: str) -> list[dict]:
+    """
+    Retrieve historical orders for a given broker and symbol starting from January 1, 2024.
+
+    Args:
+        broker_name (BybitBroker): The broker from which to retrieve order history.
+        symbol_name (str): The symbol for which to retrieve order history.
+
+    Returns:
+        list[dict]: A list of dictionaries containing order details.
+    """
     start_date = int(datetime(2024, 1, 1).timestamp() * 1000)
     order_list = []
     while True:
@@ -104,7 +114,8 @@ async def task_get_old_orders(
                     broker = await BrokerORM.get_by_name(db, broker_name)
                     symbol = await SymbolORM.get_by_name_and_broker(db, symbol_name, broker_name)
 
-                    orders = await grab_old_orders(broker_name, symbol_name)
+                orders = await grab_old_orders(broker_name, symbol_name)
+                async with sessionmaker.session() as db:
                     for order in orders:
                         kwargs = dict(
                             price=Decimal(order["price"]),
@@ -185,10 +196,10 @@ async def task_get_orders(
                     # get orders
                     broker = await BrokerORM.get_by_name(db, broker_name)
                     symbol = await SymbolORM.get_by_name_and_broker(db, symbol_name, broker_name)
-                    orders = await fetch_orders_and_history(broker_name, symbol_name)
 
+                orders = await fetch_orders_and_history(broker_name, symbol_name)
+                async with sessionmaker.session() as db:
                     for order in orders:
-                        await asyncio.sleep(0.2)
                         kwargs = dict(
                             price=Decimal(order["price"]),
                             qty=Decimal(order["qty"]),

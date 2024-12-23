@@ -28,8 +28,8 @@ async def task_get_positions(
     logger.info(f"start task: {logger.name}")
     while not stop_event.is_set():
         try:
-            async with sessionmaker.session() as db:
-                for broker in ["Bybit_perpetual", "Bybit-inverse"]:
+            for broker in ["Bybit_perpetual", "Bybit-inverse"]:
+                async with sessionmaker.session() as db:
                     broker_symbols = (
                         (
                             await db.execute(
@@ -46,14 +46,16 @@ async def task_get_positions(
                         .mappings()
                         .all()
                     )
-                    for symbol in broker_symbols:
-                        positions: list[dict] = await get_position_info(broker, symbol["name"])  # type: ignore
-                        positions = [
-                            pos for pos in positions if pos["positionValue"] != ""
-                        ]
+                for symbol in broker_symbols:
+                    positions: list[dict] = await get_position_info(broker, symbol["name"])  # type: ignore
+                    positions = [
+                        pos for pos in positions if pos["positionValue"] != ""
+                    ]
+                    async with sessionmaker.session() as db:
                         await refresh_positions_in_db(db, positions, broker, symbol["name"])  # type: ignore
-                        await asyncio.sleep(0.5)
-                    await asyncio.sleep(1)
+
+                    await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
 
             await asyncio.sleep(120)
         except GetPositionsError as ex:
