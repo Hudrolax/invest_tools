@@ -25,7 +25,7 @@ class SymbolORM(BaseDBObject):
     __tablename__ = "symbols"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
-    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False)
+    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False, index=True)
     rate = Column(DECIMAL(precision=20, scale=8), default=Decimal(1))
     last_update_time = Column(TIMESTAMP, nullable=True)
     active_wss = Column(BOOLEAN, nullable=True, default=False)
@@ -79,11 +79,11 @@ class SymbolORM(BaseDBObject):
         result = (
             await db.scalars(
                 select(cls)
+                .where(cls.name == name)
                 .join(
                     BrokerORM,
                     (BrokerORM.id == cls.broker_id) & (BrokerORM.name == broker_name),
                 )
-                .where(cls.name == name)
             )
         ).first()
         if not result:

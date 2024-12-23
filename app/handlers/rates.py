@@ -11,11 +11,26 @@ from models.symbol import SymbolORM
 
 logger = logging.getLogger(__name__)
 
+
 async def handle_rates(
     broker: BinanceBroker | BybitBroker,
     symbol: str,
     last_price: Decimal | str | int | float,
 ) -> None:
+    if symbol not in [
+        "BTCUSDT",
+        "BTCUSD",
+        "BTCARS",
+        "ETHUSDT",
+        "ETHUSD",
+        "ETHBTC",
+        "USDTARS",
+        "USDRUB",
+        "USDTRUB",
+        "BTCRUB",
+    ]:
+        return
+
     last_price = last_price if isinstance(last_price, Decimal) else Decimal(last_price)
 
     async with sessionmanager.session() as db:

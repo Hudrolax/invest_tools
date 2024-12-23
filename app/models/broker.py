@@ -9,7 +9,7 @@ from .base_object import BaseDBObject
 class BrokerORM(BaseDBObject):
     __tablename__ = "brokers"  # type: ignore
     id = Column(Integer, primary_key=True, index=True)  # type: ignore
-    name = Column(String, unique=True, nullable=False)  # type: ignore
+    name = Column(String, unique=True, nullable=False, index=True)  # type: ignore
     symbols = relationship("SymbolORM", back_populates="broker", cascade="all, delete")
 
     def __str__(self) -> str:
