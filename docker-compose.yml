@@ -12,6 +12,7 @@ services:
         max-file: "3"
     # restart: always
     environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASS}@pgbouncer:6432/${DB_NAME}
       - DB_HOST=${DB_HOST}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
@@ -30,7 +31,7 @@ services:
     volumes:
       - ./app:/app
     depends_on:
-      - db
+      - pgbouncer
 
   db:
     image: postgres:15-alpine
@@ -46,6 +47,21 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASS}
+
+  pgbouncer:
+      image: edoburu/pgbouncer:latest
+      container_name: pgbouncer
+      depends_on:
+        - db
+      environment:
+        - DB_USER=${DB_USER}
+        - DB_PASSWORD=${DB_PASS}
+        - DB_NAME=${DB_NAME}
+        - DB_HOST=db
+        - LISTEN_PORT=6432
+        - AUTH_TYPE=plain
+      ports:
+        - "6432:6432"
 
   adminer:
     image: adminer

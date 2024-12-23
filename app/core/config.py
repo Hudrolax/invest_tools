@@ -52,7 +52,9 @@ DB_HOST = get_env_value('DB_HOST')
 DB_NAME = get_env_value('DB_NAME')
 DB_USER = get_env_value('DB_USER')
 DB_PASS = get_env_value('DB_PASS')
-DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+DATABASE_URL = get_env_value('DATABASE_URL')
+print(DATABASE_URL)
+# DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 
 # SECRET
 SECRET = get_env_value('SECRET')
