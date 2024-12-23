@@ -137,7 +137,7 @@ async def get_alerts_telegram_bot_api(
     is_sent: bool | None = None,
     is_active: bool | None = None,
     is_triggered: bool | None = None,
-    authorized: bool = Depends(telegram_bot_authorized),
+    _: bool = Depends(telegram_bot_authorized),
     db: AsyncSession = Depends(get_db),
 ) -> list[Alert]:
     try:
@@ -163,7 +163,7 @@ async def get_alerts_telegram_bot_api(
 @router.get("/{alert_id}", response_model=Alert)
 async def get_alert(
     alert_id: int,
-    user: UserORM = Depends(check_token),
+    _: UserORM = Depends(check_token),
     db: AsyncSession = Depends(get_db),
 ) -> Alert:
     try:

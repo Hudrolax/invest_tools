@@ -14,7 +14,6 @@ from brokers.binance import (
     BinanceBroker,
     BinanceTimeframe,
     BinanceMarketStreamType,
-    BINANCE_BROKERS,
 )
 from brokers.binance.stream import market_stream as binance_market_stream
 from brokers.bybit import (

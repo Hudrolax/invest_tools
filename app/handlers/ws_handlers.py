@@ -70,7 +70,7 @@ async def ws_ticker_handler(
             else:
                 return
         else:
-            raise ValueError(f"wrond broker {broker}")
+            raise ValueError(f"wrong broker {broker}")
 
     elif stream_type in ["position"]:
         await handle_positions(positions_data=data)
