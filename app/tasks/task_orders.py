@@ -198,8 +198,8 @@ async def task_get_orders(
                     symbol = await SymbolORM.get_by_name_and_broker(db, symbol_name, broker_name)
 
                 orders = await fetch_orders_and_history(broker_name, symbol_name)
-                async with sessionmaker.session() as db:
-                    for order in orders:
+                for order in orders:
+                    async with sessionmaker.session() as db:
                         kwargs = dict(
                             price=Decimal(order["price"]),
                             qty=Decimal(order["qty"]),
