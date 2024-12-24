@@ -54,18 +54,18 @@ async def ws_ticker_handler(
                     return
                 kline_data = data["data"][-1]
                 await handle_rates(broker, symbol, kline_data["close"])
-                await handle_kline(
-                    broker,  # type: ignore
-                    symbol,
-                    interval=timeframe,  # type: ignore
-                    kline=Kline(
-                        start=kline_data["start"],
-                        open=kline_data["open"],
-                        high=kline_data["high"],
-                        low=kline_data["low"],
-                        close=kline_data["close"],
-                    ),
-                )
+                # await handle_kline(
+                #     broker,  # type: ignore
+                #     symbol,
+                #     interval=timeframe,  # type: ignore
+                #     kline=Kline(
+                #         start=kline_data["start"],
+                #         open=kline_data["open"],
+                #         high=kline_data["high"],
+                #         low=kline_data["low"],
+                #         close=kline_data["close"],
+                #     ),
+                # )
                 # await handle_alerts(broker, symbol, kline_data["close"])
             else:
                 return
