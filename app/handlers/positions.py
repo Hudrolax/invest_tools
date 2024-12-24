@@ -30,30 +30,22 @@ async def refresh_positions_in_db(
             if not symbol:
                 raise ValueError("Symbol should be passed")
 
-            symbol_instance = await SymbolORM.get_by_name_and_broker(
-                db, name=symbol.upper(), broker_name=broker
-            )
-            await db.execute(
-                delete(PositionORM).where(PositionORM.symbol_id == symbol_instance.id)
-            )
+            symbol_instance = await SymbolORM.get_by_name_and_broker(db, name=symbol.upper(), broker_name=broker)
+            await db.execute(delete(PositionORM).where(PositionORM.symbol_id == symbol_instance.id))
 
         for position in positions:
             if Decimal(position["positionValue"]) == Decimal(0):
                 continue
 
             try:
-                broker_name = (
-                    broker if broker else BYBIT_MARKET_TYPE_BROKER[position["category"]]
-                )
+                broker_name = broker if broker else BYBIT_MARKET_TYPE_BROKER[position["category"]]
                 broker = await BrokerORM.get_by_name(db, name=broker_name)
                 try:
                     symbol_instance = await SymbolORM.get_by_name_and_broker(
                         db, name=position["symbol"], broker_name=broker.name
                     )
                 except NoResultFound:
-                    symbol_instance = await SymbolORM.get_or_create(
-                        db, name=position["symbol"], broker_id=broker.id
-                    )
+                    symbol_instance = await SymbolORM.get_or_create(db, name=position["symbol"], broker_id=broker.id)
 
                 await SymbolORM.update(db, id=symbol_instance.id, active_wss=True)
             except NoResultFound as ex:
@@ -68,31 +60,19 @@ async def refresh_positions_in_db(
                 size=Decimal(position["size"]),
                 position_value=Decimal(position["positionValue"]),
                 mark_price=Decimal(position["markPrice"]),
-                entry_price=Decimal(
-                    position["entryPrice"]
-                    if position.get("entryPrice")
-                    else position["avgPrice"]
-                ),
-                leverage=Decimal(position["leverage"]) if position["leverage"] else None,
-                position_balance=(
-                    Decimal(position["positionBalance"])
-                    if position["positionBalance"]
-                    else None
-                ),
-                liq_price=Decimal(position["liqPrice"]) if position["liqPrice"] else None,
-                take_profit=(
-                    Decimal(position["takeProfit"]) if position["takeProfit"] else None
-                ),
-                stop_loss=Decimal(position["stopLoss"]) if position["stopLoss"] else None,
+                entry_price=Decimal(position["entryPrice"] if position.get("entryPrice") else position["avgPrice"]),
+                leverage=(Decimal(position["leverage"]) if position["leverage"] else None),
+                position_balance=(Decimal(position["positionBalance"]) if position["positionBalance"] else None),
+                liq_price=(Decimal(position["liqPrice"]) if position["liqPrice"] else None),
+                take_profit=(Decimal(position["takeProfit"]) if position["takeProfit"] else None),
+                stop_loss=(Decimal(position["stopLoss"]) if position["stopLoss"] else None),
                 unrealised_pnl=Decimal(position["unrealisedPnl"]),
                 cur_realised_pnl=Decimal(position["curRealisedPnl"]),
                 cum_realised_pnl=Decimal(position["cumRealisedPnl"]),
                 position_status=position["positionStatus"],
                 created_time=datetime.fromtimestamp(int(position["createdTime"]) / 1000),
                 updated_time=(
-                    datetime.fromtimestamp(int(position["updatedTime"]) / 1000)
-                    if position["updatedTime"]
-                    else None
+                    datetime.fromtimestamp(int(position["updatedTime"]) / 1000) if position["updatedTime"] else None
                 ),
             )
             logger.info(f'add position {symbol} size {position["size"]}')

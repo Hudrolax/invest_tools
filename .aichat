@@ -1,0 +1,12 @@
+>>> include
+./app/handlers/positions.py
+
+>>> user
+Найди, что приводит к ошибке:
+server-invest_tools_backend-1  |   File "/py/lib/python3.12/site-packages/sqlalchemy/sql/coercions.py", line 518, in _raise_for_expected
+server-invest_tools_backend-1  |     raise exc.ArgumentError(msg, code=code) from err
+server-invest_tools_backend-1  | sqlalchemy.exc.ArgumentError: SQL expression element or literal value expected, got <models.broker.BrokerORM object at 0x7fb4b376a150>
+
+Попробуй указать строку кода, которая приводит к ошибке
+
+

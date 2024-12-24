@@ -29,7 +29,7 @@ class DatabaseSessionManager:
     def log_connection_status(self):
         if self.engine:
             status = self.engine.pool.status()
-            print(status)
+
 
     async def close(self):
         if self.engine is None:
