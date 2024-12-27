@@ -8,6 +8,7 @@ import hmac
 import websockets
 from datetime import datetime
 import time
+from collections import defaultdict, deque
 
 from utils import async_traceback_errors, log_error_with_traceback
 from brokers.bybit import BybitBroker, BybitTimeframe, BybitStreamType, BYBIT_BROKER_MARKET_TYPE
@@ -19,11 +20,14 @@ from core.config import (
     BYBIT_API_KEY,
     BYBIT_API_SECRET,
     BYBIT_PRIVATE_WSS,
-    BYBIT_TRADE_WSS,
 )
 
 
 logger = logging.getLogger("bybit_stream")
+
+MAX_CONNECTIONS = 500
+WINDOW = 300  # 5 minutes in seconds
+connections_dq = deque()
 
 
 @async_traceback_errors(logger)
@@ -56,6 +60,14 @@ async def ticker_stream(
         raise ValueError(f"Wrong broker {broker}")
 
     while not stop_event.is_set():
+        if connections_dq:
+            connections_dq.popleft()
+        now = time.time()
+        connections_dq.append(now)
+        if len(connections_dq) >= MAX_CONNECTIONS and now - connections_dq[0] < WINDOW:
+            await asyncio.sleep(10)
+            continue
+
         try:
             async with websockets.connect(wss_base) as ws:
                 # Подписываемся на поток
@@ -122,7 +134,6 @@ async def ticker_stream(
             websockets.exceptions.ConnectionClosedOK,
         ):
             logger.warning("Connection closed, retrying...")
-            await asyncio.sleep(3)  # waiting before reconnect
         except asyncio.CancelledError as e:
             raise e
         except Exception as e:

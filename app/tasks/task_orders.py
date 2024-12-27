@@ -59,6 +59,7 @@ async def task_remove_old_orders(
     logger.info(f"start task: {logger.name}")
     while not stop_event.is_set():
         try:
+            # delete old insignificant orders
             async with sessionmaker.session() as db:
                 await db.execute(
                     delete(OrderORM).where(
@@ -73,9 +74,76 @@ async def task_remove_old_orders(
                     )
                 )
 
+            # get actual openned orders for checking
+            async with sessionmaker.session() as db:
+                query = (
+                    select(
+                        OrderORM.id,
+                        OrderORM.broker_order_id,
+                        BrokerORM.name.label("broker_name"),
+                    )
+                    .where((OrderORM.order_status == "New") | (OrderORM.order_status == "PartiallyFilled"))
+                    .join(SymbolORM, SymbolORM.id == OrderORM.symbol_id)
+                    .join(BrokerORM, BrokerORM.id == SymbolORM.broker_id)
+                )
+                actual_orders = (await db.execute(query)).mappings().all()
+
+            for order in actual_orders:
+                broker_orders = await get_orders(
+                    broker=order["broker_name"],
+                    orderId=order["broker_order_id"],
+                )
+                try:
+                    async with sessionmaker.session() as db:
+                        if broker_orders:
+                            kwargs = dict(
+                                price=Decimal(broker_orders[0]["price"]),
+                                qty=Decimal(broker_orders[0]["qty"]),
+                                order_status=broker_orders[0]["orderStatus"],
+                                cancel_type=broker_orders[0].get("cancelType"),
+                                avg_price=(
+                                    Decimal(broker_orders[0].get("avgPrice", 0))
+                                    if broker_orders[0].get("avgPrice")
+                                    else None
+                                ),
+                                leaves_qty=Decimal(broker_orders[0]["leavesQty"]),
+                                leaves_value=Decimal(broker_orders[0]["leavesValue"]),
+                                cum_exec_qty=Decimal(broker_orders[0]["cumExecQty"]),
+                                cum_exec_value=Decimal(broker_orders[0]["cumExecValue"]),
+                                cum_exec_fee=Decimal(broker_orders[0]["cumExecFee"]),
+                                trigger_price=(
+                                    Decimal(broker_orders[0].get("triggerPrice", 0))
+                                    if broker_orders[0].get("triggerPrice")
+                                    else None
+                                ),
+                                take_profit=(
+                                    Decimal(broker_orders[0].get("takeProfit", 0))
+                                    if broker_orders[0].get("takeProfit")
+                                    else None
+                                ),
+                                stop_loss=(
+                                    Decimal(broker_orders[0].get("stopLoss", 0))
+                                    if broker_orders[0].get("stopLoss")
+                                    else None
+                                ),
+                                updated_time=(
+                                    datetime.fromtimestamp(int(broker_orders[0]["updatedTime"]) / 1000)
+                                    if broker_orders[0].get("updatedTime")
+                                    else None
+                                ),
+                            )
+                            await OrderORM.update(db, id=order["id"], **kwargs)
+                            logger.info(f'order {order["id"]} updated')
+                        else:
+                            await db.execute(delete(OrderORM).where(OrderORM.id == order["id"]))
+                            logger.info(f'order {order["id"]} deleted')
+                except Exception as ex:
+                    log_error_with_traceback(logger, ex)
+
             await asyncio.sleep(86400)
         except Exception as ex:
             logger.error(f"Error deleting old cancelled orders: {str(ex)}")
+            await asyncio.sleep(300)
 
 
 async def task_get_old_orders(
@@ -194,8 +262,15 @@ async def task_get_orders(
             for broker_name, symbol_name in broker_symbol:
                 async with sessionmaker.session() as db:
                     # get orders
-                    broker = await BrokerORM.get_by_name(db, broker_name)
-                    symbol = await SymbolORM.get_by_name_and_broker(db, symbol_name, broker_name)
+                    # broker = await BrokerORM.get_by_name(db, broker_name)
+                    query = (
+                        select(SymbolORM.id)
+                        .where(SymbolORM.name == symbol_name)
+                        .join(BrokerORM, (BrokerORM.id == SymbolORM.broker_id) & (BrokerORM.name == broker_name))
+                    )
+                    symbol = (await db.execute(query)).mappings().first()
+                    if not symbol:
+                        raise ValueError(f'unexpected symbol {symbol_name} {broker_name}')
 
                 orders = await fetch_orders_and_history(broker_name, symbol_name)
                 for order in orders:
@@ -229,7 +304,7 @@ async def task_get_orders(
                             await OrderORM.create(
                                 db,
                                 user_id=1,
-                                symbol_id=symbol.id,
+                                symbol_id=symbol['id'],
                                 broker_order_id=order["orderId"],
                                 side=order["side"],
                                 create_type=order["createType"],

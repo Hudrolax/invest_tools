@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, TypedDict
 
 OrderSide = Literal["Sell", "Buy"]
 OrderType = Literal["Market", "Limit"]
@@ -12,11 +12,22 @@ BybitStreamType = Literal["Ticker", "Kline", "Trade", "position", "order"]
 SymbolStatus = Literal["PreLaunch", "Trading", "Delivering", "Closed"]
 ContractType = Literal['InversePerpetual', 'LinearPerpetual', 'LinearFutures', 'InverseFutures']
 
-BYBIT_BROKER_MARKET_TYPE = {
+BrokerToMarkeyTypeDict = TypedDict(
+    "BrokerToMarkeyTypeDict",
+    {
+        "Bybit-spot": Literal['spot'],
+        "Bybit_perpetual": Literal["linear"],
+        "Bybit-inverse": Literal["inverse"],
+    }
+
+)
+
+BYBIT_BROKER_MARKET_TYPE: BrokerToMarkeyTypeDict = {
     "Bybit-spot": "spot",
     "Bybit_perpetual": "linear",
     "Bybit-inverse": "inverse",
 }
+
 BYBIT_MARKET_TYPE_BROKER = {
     "spot": "Bybit-spot",
     "linear": "Bybit_perpetual",

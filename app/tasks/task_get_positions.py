@@ -9,7 +9,7 @@ from brokers.bybit.bybit_api import (
 from models.broker import BrokerORM
 from models.symbol import SymbolORM
 from core.db import DatabaseSessionManager
-from utils import async_traceback_errors
+from utils import async_traceback_errors, log_error_with_traceback
 from handlers.positions import refresh_positions_in_db
 from brokers.exceptions import GetPositionsError
 
@@ -59,8 +59,8 @@ async def task_get_positions(
 
             await asyncio.sleep(120)
         except GetPositionsError as ex:
-            logger.error(f"Error in task_get_positions: {str(ex)}")
+            log_error_with_traceback(logger, ex)
             await asyncio.sleep(120)
         except Exception as ex:
-            logger.error(f"Error in task_get_positions: {str(ex)}")
+            log_error_with_traceback(logger, ex)
             await asyncio.sleep(120)

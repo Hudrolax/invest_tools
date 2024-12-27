@@ -14,7 +14,7 @@ from models.symbol import SymbolORM
 from models.chart_settings import ChartSettingsORM
 from models.user import UserORM
 from core.db import DatabaseSessionManager
-from utils import async_traceback_errors
+from utils import async_traceback_errors, log_error_with_traceback
 
 logger = logging.getLogger(__name__)
 
@@ -185,4 +185,4 @@ async def task_get_symbols_info(
 
             await asyncio.sleep(86400)
         except Exception as ex:
-            logger.error(f"Error in task_get_positions: {str(ex)}")
+            log_error_with_traceback(logger, ex)

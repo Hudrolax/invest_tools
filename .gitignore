@@ -163,3 +163,5 @@ credentials.json
 service_account_key.json
 
 app/tmp/
+
+.aichat*
